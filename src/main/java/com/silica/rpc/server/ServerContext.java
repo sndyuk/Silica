@@ -29,7 +29,7 @@ import com.silica.service.Service;
 import com.silica.service.ServiceException;
 
 /**
- * サーバコンテクスト
+ * Server context
  */
 public class ServerContext {
 

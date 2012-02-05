@@ -32,7 +32,7 @@ import com.silica.Silica;
 import com.silica.service.Service;
 
 /**
- * サーバセレクタ
+ * Server selector
  * <p>
  * サービスの実行に適切なサーバを選択したり
  * </p>
