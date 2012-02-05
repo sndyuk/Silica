@@ -13,21 +13,15 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package com.silica.rpc.pipe;
+package com.silica.job;
 
-public class PipeException extends Exception {
 
-	private static final long serialVersionUID = -6490607896125043064L;
+public class TestJob1 implements Job<String> {
 
-	public PipeException(String s, Exception e) {
-		super(s, e);
-	}
-	
-	public PipeException(String s) {
-		super(s);
-	}
-	
-	public PipeException(Exception e) {
-		super(e);
+	private static final long serialVersionUID = 7928128350315086340L;
+
+	@Override
+	public String execute() throws JobException {
+		return "success";
 	}
 }

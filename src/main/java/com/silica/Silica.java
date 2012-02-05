@@ -1,101 +1,69 @@
+/**
+ *    Copyright (C) 2011 sndyuk
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
 package com.silica;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.URL;
-import java.net.UnknownHostException;
+import java.io.Serializable;
+import java.text.MessageFormat;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.silica.rpc.server.SecurePipedServer;
+import com.silica.job.Callback;
+import com.silica.job.Job;
+import com.silica.job.JobExecutor;
 import com.silica.rpc.server.Server;
-import com.silica.rpc.server.ServerException;
 import com.silica.rpc.server.ServerSelector;
+import com.silica.service.Service;
 import com.silica.service.ServiceException;
 
 /**
  * Silica
+ * <p>
+ * 複数の仮想リソース上で並列処理
+ * </p>
  */
 public final class Silica {
 
-	private static final Logger log = LoggerFactory.getLogger(Silica.class);
-
-	/**
-	 * 共通スキーム
-	 */
+	private static final Logger LOG = LoggerFactory.getLogger(Silica.class);
+	
+	private static String CONFIG_PATH;
 	private static Config GLOBAL_CONFIG;
-	
-	/**
-	 * ローカルアドレス
-	 */
-	private static InetAddress LOCAL_HOST;
-	
-	/**
-	 * ベースディレクトリ
-	 */
-	private static String BASE_DIR;
-	
-	/**
-	 * Jobタイムアウト
-	 */
-	private static int JOB_TIMEOUT;
+	private static Class<? extends Service> SERVICE_CLASS;
 
-	static {
+	private static ExecutorService EXECUTOR_POOL = Executors.newFixedThreadPool(3);
 
-		try {
-
-//			LOCAL_HOST = InetAddress.getLocalHost();
-			LOCAL_HOST = InetAddress.getByName("localhost");
-			
-		} catch (UnknownHostException e) {
-
-			log.error("Could not get local address.", e);
-		}
-
-		
-		String confPath = null;
-		
-		URL u = Thread.currentThread().getContextClassLoader().getResource("silica.properties");
-		
-		if (u != null) {
-			
-			confPath = u.getPath();
-			
-		} else {
-			
-			confPath = System.getProperty("SILICA_CONF");
-			
-			if (confPath == null) {
-				confPath = System.getenv("SILICA_CONF");
-			}
-		}
-		if (confPath == null) {
-			
-			log.error("Could not find [SILICA_CONF].");
-		} else {
-			
-			log.info("[SILICA_CONF]: {}", confPath);
-		}
-
-		GLOBAL_CONFIG = new Config();
-		try {
-			GLOBAL_CONFIG.init(confPath);
-
-		} catch (IOException e) {
-			log.error("Could not load SILICA_CONF.", e);
-		}
-
-		BASE_DIR = (BASE_DIR = GLOBAL_CONFIG.get("base.dir")).endsWith("/") ? BASE_DIR
-				: BASE_DIR + "/";
-		
-		JOB_TIMEOUT = Integer.parseInt(GLOBAL_CONFIG.get("job.timeout"));
-	}
 
 	/**
 	 * 共通スキームから構成値を取得する
 	 * 
-	 * @param key 変数名
+	 * @param key
+	 *            変数名
 	 * @return 構成値
 	 */
 	public static String getGlobalConfig(String key) {
@@ -103,121 +71,359 @@ public final class Silica {
 	}
 
 	/**
-	 * ベースディレクトリを取得する
+	 * Silica 
+	 * 
+	 * @param args
+	 *            -o: (bind | unbind | exit) -S: xxx=hoge
+	 */
+	public static void main(String[] args) {
+		new Bootstrap().boot(args).execute();
+	}
+	public static void boot(String[] args) {
+		new Bootstrap().boot(args);
+	}
+	public static void boot() {
+		boot(new String[0]);
+	}
+	
+	/**
+	 * ローカルホストの基本ディレクトリパスを返す
 	 * 
 	 * @return ベースディレクトリ
 	 */
-	public static String getBaseDirectry() {
-		return BASE_DIR;
+	public static String getBaseDirectory() {
+		return GLOBAL_CONFIG.get(Config.KEY_BASE_DIR);
+	}
+
+	/**
+	 * ローカルホストのリソースディレクトリを返す
+	 * 
+	 * @return ベースディレクトリ
+	 */
+	public static String getResourceDirectory() {
+		return GLOBAL_CONFIG.get(Config.KEY_RESOURCE_DIR);
+	}
+
+	
+	/**
+	 * Silica設定ファイルのパス
+	 * 
+	 * @return
+	 */
+	public static String getConfigPath() {
+		return CONFIG_PATH;
 	}
 	
-	//
-	// public static void setGlobalConfig(String key, String value) {
-	// GLOBAL_CONFIG.setMine(key, value);
-	// }
-
 	/**
-	 * ローカルアドレスを取得する
+	 * Silicaインスタンスを一意に識別するためのIDを返す
 	 * 
-	 * @return ローカルアドレス
+	 * @return Silicaインスタンスを一意に識別するためのID
 	 */
-	public static InetAddress getLocalAddress() {
-
-		return LOCAL_HOST;
+	public static String getResourceID() {
+		return GLOBAL_CONFIG.get(Config.KEY_RESOURCE_ID);
 	}
 
 	/**
-	 * Silicaを操作する
+	 * Service classを取得する
 	 * 
-	 * @param args 0: (bind | unbind), 1: サービス名(任意：指定しない場合、共通スキームに定義されたサービスが適用される)
+	 * @return Service class
 	 */
-	public static void main(String[] args) {
-
-		if (args == null || args.length == 0) {
-
-			throwUsage(null);
+	public static Class<? extends Service> getServiceClass() {
+		return SERVICE_CLASS;
+	}
+	
+	/**
+	 * Jobの最大実行時間を返す
+	 * 
+	 * @return Jobの最大実行時間
+	 */
+	public static long getJobTimeout() {
+		String jobTimeout = GLOBAL_CONFIG.get(Config.KEY_JOB_TIMEOUT_MSEC);
+		if (jobTimeout == null) {
+			return -1L;
 		}
+		return Long.parseLong(jobTimeout);
+	}
 
-		Server server = ServerSelector.getLocalServer();
-
+	/**
+	 * 過去のSilicaインスタンスのリソースをいつくまで破棄せずに保持しておくかを返す
+	 * @return 過去のSilicaインスタンスのリソースをいつくまで破棄せずに保持しておくか
+	 */
+	public static int getNumOfKeepDeployed() {
+		String keepDeployedLast = GLOBAL_CONFIG.get(Config.KEY_KEEP_DEPLOYED_LAST);
+		if (keepDeployedLast == null) {
+			return 0;
+		}
+		return Integer.parseInt(keepDeployedLast);
+	}
+	
+	/**
+	 * Jobを同期実行する
+	 * 
+	 * @param job
+	 * @return
+	 * @throws ServiceException
+	 */
+	public static <T extends Serializable> T execute(Job<T> job) throws ServiceException {
+		return execute(job, getJobTimeout());
+	}
+	
+	/**
+	 * Jobを同期実行する
+	 * 
+	 * @param job
+	 * @param jobTimeoutMsec
+	 * @return
+	 * @throws ServiceException
+	 */
+	public static <T extends Serializable> T execute(Job<T> job, long jobTimeoutMsec) throws ServiceException {
+		
+		JobExecutor<T> executor = new JobExecutor<T>(job);
+		Future<T> future = EXECUTOR_POOL.submit(executor);
+		Exception err = null;
 		try {
-
-			if ("bind".equals(args[0])) {
-
-				String serviceName = null;
-
-				if (args.length == 1) {
-
-					serviceName = server.getServerContext().getProperty(
-							"service.class");
-
-				} else if (args.length == 2) {
-
-					serviceName = args[1];
-
-				} else {
-
-					throwUsage(null);
-				}
-				server.bind(serviceName,
-						server.getServerContext().getService(serviceName));
-
-			} else if ("unbind".equals(args[0])) {
-
-				if (args.length == 1) {
-
-					server.unbind(server.getServerContext().getProperty(
-							"service.class"));
-
-				} else if (args.length == 2) {
-
-					server.unbind(args[1]);
-
-				} else {
-
-					throwUsage(null);
-				}
-			} else if ("start".equals(args[0])) {
-
-				SecurePipedServer spserver = (SecurePipedServer) server;
-				spserver.activate();
-				main(new String[] { "bind" });
-
-			} else if ("exit".equals(args[0])) {
-
-				SecurePipedServer spserver = (SecurePipedServer) server;
-				spserver.disactivate();
-
-			} else {
-
-				throwUsage(null);
-			}
-			server.disconnect();
-
-		} catch (ServiceException e) {
-
-			throwUsage(e);
-
-		} catch (ServerException e) {
-
-			throwUsage(e);
+			return future.get(jobTimeoutMsec, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			LOG.info(job.toString(), e);
+			err = e;
+		} catch (ExecutionException e) {
+			LOG.error(job.toString(), e);
+			err = e;
+		} catch (TimeoutException e) {
+			LOG.warn(job.toString(), e);
+			err = e;
 		}
+		throw new ServiceException(job.toString(), err);
+	}
+	
+	/**
+	 * Jobを非同期実行する
+	 * 
+	 * @param job
+	 * @return
+	 */
+	public static <T extends Serializable> Future<T> executeAsync(Job<T> job) {
+		
+		JobExecutor<T> executor = new JobExecutor<T>(job);
+		return EXECUTOR_POOL.submit(executor);
+	}
+	
+	/**
+	 * Jobを非同期実行し、実行後にjobCallbackを実行する
+	 * 
+	 * @param job
+	 * @param jobCallback
+	 */
+	public static <T extends Serializable> void executeAsync(final Job<T> job, final Callback<T> jobCallback) {
+		executeAsync(job, jobCallback, getJobTimeout());
+	}
+	
+	/**
+	 * Jobを非同期実行し、実行後にjobCallbackを実行する
+	 * 
+	 * @param job
+	 * @param jobCallback
+	 * @param jobTimeoutMsec
+	 */
+	public static <T extends Serializable> void executeAsync(final Job<T> job, final Callback<T> jobCallback, final long jobTimeoutMsec) {
+		
+		JobExecutor<T> executor = new JobExecutor<T>(job);
+		final Future<T> future = EXECUTOR_POOL.submit(executor);
+		EXECUTOR_POOL.execute(new Runnable() {
+			
+			@Override
+			public void run() {
+				try {
+					T result = getResult(future, jobTimeoutMsec, job.toString());
+					jobCallback.execute(result);
+				} catch (ServiceException e) {
+					LOG.error("", e);
+				}
+			}
+		});
+	}
+	
+	private static <T extends Serializable> T getResult(Future<T> future, long jobTimeoutMsec, String jobDescription) throws ServiceException {
+		Exception exception = null;
+		try {
+			return future.get(jobTimeoutMsec, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			LOG.info(jobDescription, e);
+			exception = e;
+		} catch (ExecutionException e) {
+			LOG.error(jobDescription, e);
+			exception = e;
+		} catch (TimeoutException e) {
+			LOG.warn(jobDescription, e);
+			exception = e;
+		}
+		throw new ServiceException(jobDescription, exception);
 	}
 
 	/**
-	 * job最大実行時間を取得する
-	 * 
-	 * @return job最大実行時間
+	 * 実行中のJobを安全にシャットダウンする
 	 */
-	public static int getJobTimeout() {
-		return JOB_TIMEOUT;
+	protected static void shutdownAllJob() {
+		EXECUTOR_POOL.shutdown();
+		try {
+			if (!EXECUTOR_POOL.awaitTermination(1, TimeUnit.SECONDS)) {
+				EXECUTOR_POOL.shutdownNow();
+				if (!EXECUTOR_POOL.awaitTermination(1, TimeUnit.SECONDS))
+					LOG.warn("Pool did not terminate");
+			}
+		} catch (InterruptedException ie) {
+			EXECUTOR_POOL.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
 	}
 	
-	private static void throwUsage(Exception e) throws IllegalArgumentException {
-		if (e != null) {
 
-			throw new IllegalArgumentException("", e);
+	private static class Bootstrap {
+		private static final String KEY_CONFIG_PATH = "SILICA_CONF";
+		private static final Options OPTS = new Options();
+		static {
+			OPTS.addOption("o", true, "bind | unbind");
+			OPTS.addOption("c", true, "silica confing file");
+			OPTS.addOption("s", true, "override properties");
 		}
-		throw new IllegalArgumentException("");
+		
+		private boolean initialized;
+		private TypeOrderCmd order;
+		
+		private static enum TypeOrderCmd {
+			bind, unbind
+		}
+		
+		Bootstrap boot(String[] args) {
+			if (initialized) {
+				throw new IllegalStateException("Already initialized");
+			}
+			if (args == null) {
+				args = new String[0];
+			}
+			if (LOG.isDebugEnabled()) {
+				for (int i = 0; i < args.length; i++) {
+					LOG.debug("args[{}]={}", i, args[i]);
+				}
+			}
+			try {
+				CommandLineParser parser = new PosixParser();
+				CommandLine cmd = parser.parse(OPTS, args);
+				parseOptions(cmd);
+			} catch (Exception e) {
+				new HelpFormatter().printHelp("example", OPTS);
+				throw new IllegalArgumentException(e);
+			} finally {
+				initialized = true;
+			}
+			return this;
+		}
+		
+		Bootstrap execute() {
+
+			Server localServer = ServerSelector.createSelector().getLocalServer();
+
+			try {
+
+				switch (order) {
+				case bind:
+					localServer.bind(localServer.getServerContext().getService());
+					break;
+				case unbind:
+					localServer.unbind(SERVICE_CLASS);
+					break;
+				default:
+					throw new RuntimeException(MessageFormat.format("Unknown order command {0}", order));
+				}
+			} catch (Exception e) {
+				throw new RuntimeException("Unknown error", e);
+			}
+			return this;
+		}
+		
+
+		private CommandLine parseOptions(CommandLine cmd)
+				throws ParseException, IOException {
+			
+			String o = cmd.getOptionValue("o");
+			if (o != null) {
+				order = TypeOrderCmd.valueOf(o);
+			}
+			String c = cmd.getOptionValue("c");
+			if (c != null) {
+				System.setProperty(KEY_CONFIG_PATH, c);
+			}
+			
+			GLOBAL_CONFIG = new Config();
+
+			String confPath = System.getProperty(KEY_CONFIG_PATH);
+
+			if (confPath == null || confPath.length() == 0) {
+
+				confPath = System.getenv(KEY_CONFIG_PATH);
+			}
+			if (confPath == null || confPath.length() == 0) {
+
+				confPath = "silica.properties";
+			}
+			CONFIG_PATH = confPath;
+			LOG.info("[SILICA_CONF]: {}", confPath);
+			
+			GLOBAL_CONFIG.init(Thread.currentThread().getContextClassLoader().getResource(confPath));
+			
+			String[] props = cmd.getOptionValues("s");
+			if (props != null) {
+				for (String prop : props) {
+
+					int pos = prop.indexOf("=");
+					String key = prop.substring(0, pos);
+					String value = prop.substring(pos + 1, prop.length());
+
+					if (key == null || key.length() == 0 || value == null || value.length() == 0) {
+						continue;
+					}
+					if (key.equals(Config.KEY_BASE_DIR)) {
+						String baseDir = value.endsWith("/") ? value : value + "/";
+						LOG.info(baseDir);
+						GLOBAL_CONFIG.set(Config.KEY_BASE_DIR, baseDir);
+
+					} else if (key.equals(Config.KEY_CLASS_PATHS)) {
+
+						String extpaths = value;
+						if (extpaths != null && extpaths.length() > 0) {
+							String orgpaths = getGlobalConfig(Config.KEY_CLASS_PATHS);
+							if (orgpaths != null && orgpaths.length() > 0) {
+								extpaths = orgpaths + "," + extpaths;
+							}
+							GLOBAL_CONFIG.set(Config.KEY_CLASS_PATHS, extpaths);
+						}
+					} else {
+
+						GLOBAL_CONFIG.set(key, value);
+					}
+				}
+			}
+			String resourceID = getResourceID();
+			if (resourceID == null) {
+				/*
+				 * * This is a first instance. *
+				 * * Create a resource id. *
+				 */
+				GLOBAL_CONFIG.set(Config.KEY_RESOURCE_ID, Long.toString(System.currentTimeMillis(), Character.MAX_RADIX));
+				GLOBAL_CONFIG.set(Config.KEY_RESOURCE_DIR, getBaseDirectory());
+				GLOBAL_CONFIG.set(Config.KEY_HOST_ADDRESS, "localhost");
+			}
+			
+			try {
+				@SuppressWarnings("unchecked")
+				Class<? extends Service> serviceClass = (Class<? extends Service>) Class.forName(getGlobalConfig("service.class"));
+				SERVICE_CLASS = serviceClass;
+				
+			} catch (ClassNotFoundException e) {
+				LOG.error("Could not difine service class.", e);
+			}
+			
+			return cmd;
+		}
 	}
 }

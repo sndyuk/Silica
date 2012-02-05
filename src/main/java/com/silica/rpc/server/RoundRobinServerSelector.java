@@ -13,21 +13,26 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package com.silica.rpc.pipe;
+package com.silica.rpc.server;
 
-public class PipeException extends Exception {
+import java.util.List;
 
-	private static final long serialVersionUID = -6490607896125043064L;
+import com.silica.service.Service;
 
-	public PipeException(String s, Exception e) {
-		super(s, e);
-	}
+/**
+ * Selector to select the server to round-robin.
+ * 
+ * @author sndyuk
+ */
+public class RoundRobinServerSelector implements SelectLogic {
+
+	private int pos = -1;
 	
-	public PipeException(String s) {
-		super(s);
-	}
-	
-	public PipeException(Exception e) {
-		super(e);
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public synchronized Server select(Service service, List<Server> activeServers) {
+		return activeServers.get((activeServers.size() - 1) > (++pos) ? pos : (pos = 0));
 	}
 }

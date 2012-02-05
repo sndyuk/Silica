@@ -18,64 +18,87 @@ package com.silica.resource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
-import com.silica.Silica;
+import com.silica.rpc.server.ServerContext;
+import com.silica.rpc.server.ServerSelector;
 
-public abstract class ResourceLoader<T, G> {
+/**
+ * リソースローダー
+ * 
+ * @param <T>
+ *            読込後の型
+ */
+public abstract class ResourceLoader<T, A> {
+	
+	private static final Pattern PATH_SEP = Pattern.compile("^[\\s|\"|\']+|([\"|\']*[\\s]*[,]+[\\s]*[\"|\']*)");
 
-	private String path;
+	private A path;
 
-	protected abstract T defineResource(G props) throws IOException;
+	protected abstract T loadResource(A path) throws IOException;
 
-	protected abstract G loadResource(String path) throws IOException;
-
-	public T load(String path) throws IOException {
+	/**
+	 * @param path
+	 *            リソースのパス
+	 * @return 読込まれたリソース
+	 * @throws IOException
+	 *             リソースを読めなかった
+	 */
+	public T load(A path) throws IOException {
 		this.path = path;
 		return reload();
 	}
 
+	/**
+	 * 再度リソースを読込む
+	 * 
+	 * @return 再読込みされたリソース
+	 * @throws IOException
+	 *             リソースを読めなかった
+	 */
 	public T reload() throws IOException {
-		G props = loadResource(path);
-		return defineResource(props);
+
+		return loadResource(path);
 	}
 
+	/**
+	 * リソースの配列を取得する
+	 * 
+	 * @param paths
+	 *            (カンマ区切りされた)複数のリソースパス
+	 * @return リソースの配列
+	 * @throws IOException
+	 *             リソースを読めなかった
+	 */
 	public static Resource[] getResources(String paths) throws IOException {
 
 		if (paths == null || paths.length() == 0) {
 			return null;
 		}
 
-		ResourceLoader<Resource[], String[]> rl = new ResourceLoader<Resource[], String[]>() {
+		String[] arr = parseResourcePaths(paths);
+		List<Resource> resources = new ArrayList<Resource>();
 
-			@Override
-			protected Resource[] defineResource(String[] paths)
-					throws IOException {
-
-				List<Resource> resources = new ArrayList<Resource>();
-
-				for (String path : paths) {
-					if (path == null) {
-						continue;
-					}
-					resources
-							.add(new Resource(Silica.getBaseDirectry() + path));
-				}
-
-				return (Resource[]) resources.toArray(new Resource[resources
-						.size()]);
+		for (String path : arr) {
+			if (path == null || path.isEmpty()) {
+				continue;
 			}
+			ServerContext localSc = ServerSelector.createSelector().getLocalServer().getServerContext();
+			if (localSc.isRootDirectory(path)) {
 
-			@Override
-			protected String[] loadResource(String resourcepath)
-					throws IOException {
-				return parseResourcePaths(resourcepath);
+				resources.add(new Resource(path));
+
+			} else {
+
+				resources.add(new Resource(localSc.getResourceDirectory() + path));
 			}
-		};
+		}
 
-		return rl.load(paths);
+		return resources.toArray(new Resource[resources.size()]);
 	}
 
 	protected static final String[] parseResourcePaths(String paths) {
-		return paths.split("^[\\s|\"|\']+|([\"|\']*[\\s]*[,]+[\\s]*[\"|\']*)");
+
+		return PATH_SEP.split(paths);
 	}
 }

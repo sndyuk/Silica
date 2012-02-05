@@ -22,31 +22,33 @@ import org.slf4j.LoggerFactory;
 
 import com.silica.job.Job;
 import com.silica.rpc.server.ServerSelector;
+import com.silica.service.Service;
 import com.silica.service.ServiceException;
 
 public final class ProxyService extends AbstractRpcService {
 
-	private static final Logger log = LoggerFactory.getLogger(ProxyService.class);
+	private static final Logger LOG = LoggerFactory.getLogger(ProxyService.class);
 	
 	private static final long serialVersionUID = 2969871989070029618L;
 
-	private final String name;
+	private final Class<? extends Service> clazz;
 	
 	private long start;
 
-	public ProxyService(String name) throws ServiceException {
+	public ProxyService(Class<? extends Service> clazz) throws ServiceException {
 
-		this.name = name;
+		this.clazz = clazz;
 		
 		this.start = System.nanoTime();
 	}
 
 	@Override
 	public <R extends Serializable> R execute(Job<R> job) throws ServiceException {
-
-		R r = ServerSelector.select(this).execute(name, job);
+		LOG.info("execute Job {}", job.getClass().getName());
 		
-		log.info("Elapsed time: {} nano sec.", System.nanoTime() - start);
+		R r = ServerSelector.createSelector().select(this).execute(clazz, job);
+		
+		LOG.info("Elapsed time: {} nano sec.", System.nanoTime() - start);
 		return r; 
 	}
 }

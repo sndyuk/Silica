@@ -1,13 +1,23 @@
+/**
+ *    Copyright (C) 2011 sndyuk
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
 package com.silica.rpc.pipe;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.MessageFormat;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,18 +26,25 @@ import com.silica.resource.Resource;
 import com.silica.resource.ResourceWriter;
 import com.silica.rpc.server.Server;
 
+/**
+ * Pipe for the local host.
+ * 
+ * @author sndyuk
+ */
 public class DummyPipe extends Pipe {
 
-	private static final Logger log = LoggerFactory.getLogger(DummyPipe.class);
+	private static final Logger LOG = LoggerFactory.getLogger(DummyPipe.class);
+
+	private Server server;
+	private int connectionTimeout = 10000;
 
 	public DummyPipe() {
-		log.debug("created dummy pipe for localhost.");
+		LOG.debug("created dummy pipe for localhost.");
 	}
 
 	@Override
 	protected void connect(Server server) throws PipeException {
-
-		// nop :no need to connect.
+		this.server = server;
 	}
 
 	@Override
@@ -43,7 +60,7 @@ public class DummyPipe extends Pipe {
 	}
 
 	@Override
-	public void put(String dest, Resource resource) throws PipeException {
+	public void put(String dest, Resource... resources) throws PipeException {
 
 		File df = new File(dest);
 		if (!df.exists() && !df.mkdirs()) {
@@ -51,71 +68,53 @@ public class DummyPipe extends Pipe {
 			throw new PipeException(MessageFormat.format(
 					"Could not make directry [{0}].", dest));
 		}
-
-		try {
-
-			resource.cacheOnMemory();
-			ResourceWriter writer = new ResourceWriter(resource);
-			writer.publish(new File(df, resource.getName()).getAbsolutePath());
-
-		} catch (IOException e) {
-
-			throw new PipeException(MessageFormat.format(
-					"Could not put resource [{0}].", resource.getName()), e);
-		}
-	}
-
-	@Override
-	public void remove(Resource... resources) throws PipeException {
-
 		for (Resource resource : resources) {
+			try {
 
-			File file = new File(resource.getName());
+				ResourceWriter writer = new ResourceWriter(resource);
+				writer.publish(new File(df, resource.getName()).getAbsolutePath());
 
-			if (file.exists() && !file.delete()) {
+			} catch (IOException e) {
 
 				throw new PipeException(MessageFormat.format(
-						"Could not remove file [{0}]", file.getAbsoluteFile()));
+						"Could not put resource [{0}].", resource.getName()), e);
 			}
 		}
 	}
+
 
 	@Override
 	public void execute(String command) throws PipeException {
 
-		Future<Void> f = null;
-		ExecutorService executor = Executors.newSingleThreadExecutor();
 		final String[] c = command.split(" ");
-		Callable<Void> quit = new Callable<Void>() {
 
-			@Override
-			public Void call() throws Exception {
-
-				ProcessBuilder pb = new ProcessBuilder().command(c);
-				pb.start();
-				return null;
-			}
-		};
+		Process p = null;
 		try {
 
-			f = executor.submit(quit);
-			f.get(30, TimeUnit.SECONDS);
-			
-		} catch (Exception e) {
-			if (f != null) {
-				f.cancel(false);
+			ProcessBuilder pb = new ProcessBuilder().command(c);
+			p = pb.start();
+			Thread dErr = null;
+			Thread dStd = null;
+			if (LOG.isDebugEnabled()) {
+				dErr = debug(p.getErrorStream(), server.getServerContext().getCharset());
+				dStd = debug(p.getInputStream(), server.getServerContext().getCharset());
 			}
-			// try {
-			// f = executor.submit(quit);
-			// f.get(30, TimeUnit.SECONDS);
-			//
-			// } catch (Exception e1) {
-			// if (f != null) {
-			// f.cancel(false);
-			// }
+			p.waitFor();
+			if (LOG.isDebugEnabled()) {
+				dErr.join(connectionTimeout);
+				dStd.join(connectionTimeout);
+			}
+				
+		} catch (Exception e) {
+
 			throw new PipeException(MessageFormat.format(
 					"Could not execute the command [{0}]", command), e);
-			// }
+		} finally {
+
+			if (p != null) {
+
+				p.destroy();
+			}
 		}
 	}
 }

@@ -27,9 +27,9 @@ import com.silica.service.ServiceException;
 
 /**
  * <p>
- * Jobを実行する 
- * </p> 
- * {@link ExecutorService}を利用し実行する
+ * Jobを実行する
+ * </p> {@link ExecutorService}を利用し実行する
+ * 
  * @see java.util.concurrent.Callable
  * 
  * @param <R>
@@ -40,27 +40,31 @@ public class JobExecutor<R extends Serializable> implements Callable<R>,
 
 	private static final long serialVersionUID = -5579620009129572616L;
 
-	private Job<R> job;
+	private final Job<R> job;
 
 	/**
 	 * コンストラクタ
-	 * @param job 実行対象のJob
+	 * 
+	 * @param job
+	 *            実行対象のJob
 	 */
 	public JobExecutor(Job<R> job) {
 		this.job = job;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.util.concurrent.Callable#call()
 	 */
 	@Override
 	public R call() throws ServiceException {
 
-		Service service = new ProxyService(
-				Silica.getGlobalConfig("service.class"));
-
 		try {
+			
+			Service service = new ProxyService(Silica.getServiceClass());
 			return service.execute(job);
+			
 		} catch (RemoteException e) {
 
 			throw new ServiceException("", e);

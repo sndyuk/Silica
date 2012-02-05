@@ -47,5 +47,5 @@ public interface Service extends Remote, Serializable {
 	 * @return Jobの実行結果
 	 * @throws RemoteException Jobの実行に失敗
 	 */
-	public<R extends Serializable> R execute(Job<R> job) throws RemoteException;
+	public <R extends Serializable> R execute(Job<R> job) throws RemoteException;
 }

@@ -29,7 +29,7 @@ public abstract class AbstractRpcService implements Service {
 
 	private static final long serialVersionUID = 5310157636970723507L;
 
-	private static final Logger log = LoggerFactory.getLogger(AbstractRpcService.class);
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractRpcService.class);
 
 	private Resource[] resources;
 
@@ -37,7 +37,7 @@ public abstract class AbstractRpcService implements Service {
 	}
 
 	public boolean hasResource() {
-		return resources != null ? true : false;
+		return resources != null && resources.length > 0;
 	}
 
 	@Override
@@ -52,7 +52,7 @@ public abstract class AbstractRpcService implements Service {
 					File rf = new File(resource.getName());
 					String destpath = destdir + rf.getName();
 
-					log.debug("destpath: {}", destpath);
+					LOG.debug("destpath: {}", destpath);
 
 					rw = new ResourceWriter(resource);
 					rw.publish(destpath);
@@ -63,7 +63,7 @@ public abstract class AbstractRpcService implements Service {
 				for (Resource resource : resources) {
 					File f = new File(resource.getName());
 					if (!f.delete()) {
-						log.error("Could not rollback: deleting file [{}].",
+						LOG.error("Could not rollback: deleting file [{}].",
 								resource.getName());
 					}
 					resource.close();

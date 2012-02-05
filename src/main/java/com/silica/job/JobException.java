@@ -29,8 +29,4 @@ public class JobException extends Exception {
 	public JobException(String s) {
 		super(s);
 	}
-	
-	@SuppressWarnings("unused")
-	private JobException(Exception e) {
-	}
 }

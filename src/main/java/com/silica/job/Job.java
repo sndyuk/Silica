@@ -18,13 +18,7 @@ package com.silica.job;
 import java.io.Serializable;
 
 /**
- * <p>
  * Job
- * </p>
- * メンバ変数はシリアライズ可能にする必要がある
- * 
- * @param <R>
- *            Jobの実行結果
  */
 public interface Job<R extends Serializable> extends Serializable {
 

@@ -13,21 +13,34 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package com.silica.rpc.pipe;
+package com.silica.job;
 
-public class PipeException extends Exception {
+import java.math.BigDecimal;
 
-	private static final long serialVersionUID = -6490607896125043064L;
+public class TestJob2 implements Job<BigDecimal[]> {
 
-	public PipeException(String s, Exception e) {
-		super(s, e);
+	private static final long serialVersionUID = 7928128350315086340L;
+
+	private BigDecimal a;
+	private BigDecimal b;
+	private int size;
+	
+	public TestJob2(BigDecimal a, BigDecimal b, int size) {
+		this.a = a;
+		this.b = b;
+		this.size = size;
 	}
 	
-	public PipeException(String s) {
-		super(s);
-	}
-	
-	public PipeException(Exception e) {
-		super(e);
+	@Override
+	public BigDecimal[] execute() throws JobException {
+		
+		BigDecimal[] ret = new BigDecimal[size];
+		
+		for (int i = 0; i < ret.length; i++) {
+			
+			ret[i] = a.add(b);
+		}
+		
+		return ret;
 	}
 }

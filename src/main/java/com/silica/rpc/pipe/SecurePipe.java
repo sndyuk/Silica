@@ -1,7 +1,22 @@
+/**
+ *    Copyright (C) 2011 sndyuk
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
 package com.silica.rpc.pipe;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Properties;
 
@@ -18,14 +33,19 @@ import com.silica.rpc.server.SecurePipedServer;
 import com.silica.rpc.server.Server;
 import com.silica.rpc.server.ServerContext;
 
+/**
+ * SSH用のパイプ
+ */
 public class SecurePipe extends Pipe {
 
-	private static final Logger log = LoggerFactory.getLogger(SecurePipe.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SecurePipe.class);
 
+	private Server server;
 	private Session session;
-	private ChannelSftp sftp;
-	private ChannelExec exec;
-	private String charset;
+	private ChannelSftp channelSftp;
+	private ChannelExec channelExec;
+	private int connectionTimeout = 10000;
+	private long retryInterval = 100;
 
 	static {
 
@@ -39,130 +59,95 @@ public class SecurePipe extends Pipe {
 
 		if (!(server instanceof SecurePipedServer)) {
 
-			throw new PipeException(
-					"A server use Secure pipe need to instance of SecurePipedServer.");
+			throw new PipeException("A server use Secure pipe need to instance of SecurePipedServer.");
 		}
-
+		this.server = server;
 		try {
 
 			ServerContext context = server.getServerContext();
-			String address = context.getAddress();
-			charset = context.getProperty("charset");
-			if (charset == null || charset.length() == 0) {
-				charset = "utf-8";
-			}
-			int sshport = Integer.parseInt(context.getProperty("ssh.port"));
+			String address = context.getPublicAddress();
+			int sshport = context.getSshPort();
 
-			log.debug("Connecting to {}:{}", address, sshport);
+			LOG.debug("Connecting to {}:{}", address, sshport);
 
 			JSch jsch = new JSch();
 
-			String pass = context.getProperty("private.key.pass");
+			String pass = context.getSshPass();
 
 			if (pass == null || pass.length() == 0) {
 
-				jsch.addIdentity(context.getProperty("private.key.path"));
+				jsch.addIdentity(context.getSshPrivateKeyPath());
 
 			} else {
 
-				jsch.addIdentity(context.getProperty("private.key.path"), pass);
+				jsch.addIdentity(context.getSshPrivateKeyPath(), pass);
 			}
 
-			session = jsch.getSession(context.getProperty("private.key.user"),
-					address, sshport);
-			session.connect(Integer.parseInt(context
-					.getProperty("ssh.timeout.msec")));
+			session = jsch.getSession(context.getSshUser(), address, sshport);
+			session.connect(context.getSshTimeout());
 			
 		} catch (JSchException e) {
 
 			disconnect();
 
-			throw new PipeException(MessageFormat.format(
-					"Could not pipe the server [{0}].", server.toString()), e);
+			throw new PipeException(MessageFormat.format("Could not pipe the server [{0}].", server.toString()), e);
 		}
 	}
 
 	@Override
 	public void disconnect() {
 
-		if (sftp != null && !sftp.isConnected()) {
-			sftp.disconnect();
-		}
-		if (exec != null && !exec.isConnected()) {
-			exec.disconnect();
-		}
-		if (session != null && !session.isConnected()) {
+		if (session != null && session.isConnected()) {
 
-			log.debug("Disconnecting connection [{}].", session.getHost());
+			LOG.debug("Disconnecting connection [{}].", session.getHost());
 
 			session.disconnect();
 		}
 	}
 
 	@Override
-	public void put(String dest, Resource resource) throws PipeException {
+	public void put(String dest, Resource... resources) throws PipeException {
 		ensureConnect();
 
-		String destpath = dest + resource.getName();
+		for (Resource resource : resources) {
+			FileInputStream in = resource.getData();
+			if (in == null) {
+				return;
+			}
 
-		try {
+			String destpath = dest + resource.getName();
 
-			resource.cacheOnMemory();
-			useSftpChannel();
-			sftp.connect();
+			try {
 
-			int sp = 0;
-			sp = (sp = destpath.lastIndexOf("/")) > 0 ? sp : destpath
-					.lastIndexOf("\\");
-			execute("mkdir -p " + destpath.substring(0, sp));
-			sftp.put(new ByteArrayInputStream(resource.getData()), destpath);
-			
-			int exitStatus = sftp.getExitStatus();
+				int sp = 0;
+				sp = (sp = destpath.lastIndexOf('/')) > 0 ? sp : destpath.lastIndexOf('\\');
+				String destdir = destpath.substring(0, sp);
+				execute("mkdir -p " + destdir);
 
-			if (exitStatus != 0) {
+				ChannelSftp sftp = useSftpChannel();
+				sftp.put(in, destpath);
+				sftp.chmod(resource.getpermissions(), destpath);
+				
+			} catch (Exception e) {
+
+				disconnect();
+
 				throw new PipeException(MessageFormat.format(
-						"Exit Status is [{0}].", exitStatus));
+						"Could not put the resource [{0}].", destpath), e);
+			} finally {
+				try {
+					in.close();
+				} catch (IOException e) {
+					throw new PipeException(MessageFormat.format(
+							"Could not close the resource [{0}].", destpath), e);
+				}
 			}
-		} catch (Exception e) {
-
-			disconnect();
-
-			throw new PipeException(MessageFormat.format(
-					"Could not put the resource [{0}].", destpath), e);
-		}
-	}
-
-	@Override
-	public void remove(Resource... resources) throws PipeException {
-		ensureConnect();
-
-		try {
-
-			useSftpChannel();
-			sftp.connect();
-
-			for (Resource resource : resources) {
-
-				sftp.rm(new File(resource.getName()).getAbsolutePath());
-			}
-			
-			int exitStatus = sftp.getExitStatus();
-
-			if (exitStatus != 0) {
-				throw new PipeException(MessageFormat.format(
-						"Exit Status is [{0}].", exitStatus));
-			}
-		} catch (Exception e) {
-
-			disconnect();
-
-			throw new PipeException(e);
 		}
 	}
 
 	@Override
 	public boolean isConnected() {
-		return session != null ? session.isConnected() : false;
+		return session != null && session.isConnected();
 	}
 
 	@Override
@@ -170,52 +155,74 @@ public class SecurePipe extends Pipe {
 		ensureConnect();
 
 		try {
-			useExecChannel();
-			exec.setCommand(command);
 
-			exec.connect();
-			
-			debug(exec.getInputStream(), charset);
-			debug(exec.getErrStream(), charset);
-			
-			exec.disconnect();
+			final ChannelExec exec = useExecChannel();
+			exec.setCommand(command);
+			exec.connect(connectionTimeout);
+			if (LOG.isDebugEnabled()) {
+				debug(exec.getExtInputStream(), server.getServerContext().getCharset());
+			}
+			final Thread thread = new Thread() {
+				public void run() {
+					int retryCnt = 0;
+					while (!exec.isClosed()) {
+						try {
+							sleep(retryInterval * (++retryCnt));
+						} catch (InterruptedException e) {
+							LOG.warn("interrupted", e);
+							return;
+						}
+					}
+				}
+			};
+			thread.start();
+			thread.join(connectionTimeout);
 			
 			int exitStatus = exec.getExitStatus();
-			exec = null;
-
-			if (exitStatus != 0) {
-				throw new PipeException(MessageFormat.format(
-						"Exit Status is [{0}]: [{1}].", exitStatus, command));
+			LOG.debug("Exit status: {}", exitStatus);
+			
+			if (thread.isAlive()) {
+				throw new PipeException("connection time out");
 			}
 		} catch (Exception e) {
-
+			
 			disconnect();
-
 			throw new PipeException(MessageFormat.format(
 					"Could not execute command [{0}].", command), e);
 		}
 	}
 
-	private void ensureConnect() throws PipeException {
-		if (!isConnected()) {
-
-			throw new PipeException("Illegal state: connection closed.");
+	private synchronized void ensureConnect() throws PipeException {
+		if (isConnected()) {
+			return;
 		}
+		connect(server);
 	}
 
-	private void useSftpChannel() throws JSchException {
-
-		if (sftp == null || !sftp.isConnected()) {
-
-			sftp = (ChannelSftp) session.openChannel("sftp");
+	private synchronized ChannelSftp useSftpChannel() throws JSchException {
+		if (channelSftp != null && channelSftp.isConnected()) {
+			return channelSftp;
 		}
+		channelSftp = (ChannelSftp) session.openChannel("sftp");
+		channelSftp.connect(connectionTimeout);
+		return channelSftp;
 	}
 
-	private void useExecChannel() throws JSchException {
-
-		if (exec == null || !exec.isConnected()) {
-
-			exec = (ChannelExec) session.openChannel("exec");
+	private synchronized ChannelExec useExecChannel() throws JSchException {
+		if (channelExec != null && channelExec.isConnected()) {
+			return channelExec;
 		}
+		channelExec = (ChannelExec) session.openChannel("exec");
+		return channelExec;
+	}
+
+	@Override
+	protected void finalize() throws Throwable {
+		try {
+			disconnect();
+		} catch (Throwable e) {
+			// nop
+		}
+		super.finalize();
 	}
 }

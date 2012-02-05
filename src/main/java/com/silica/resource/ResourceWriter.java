@@ -19,7 +19,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.channels.FileChannel;
 import java.text.MessageFormat;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -29,13 +29,17 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * リソースライター
+ */
 public class ResourceWriter implements Closeable {
 
-	private Resource resource;
+	private static ExecutorService FIXED_WRITER_THREAD = Executors.newFixedThreadPool(2);
+	
+	private final Resource resource;
 
 	public ResourceWriter(Resource resource) {
 		this.resource = resource;
-		defineWriter();
 	}
 
 	public void publish(String path) throws IOException {
@@ -56,30 +60,39 @@ public class ResourceWriter implements Closeable {
 				throw new IOException(MessageFormat.format(
 						"Could not create new dir [{0}].", p.getAbsolutePath()));
 			}
-			if (!d.createNewFile()) {
-
-				throw new IOException(MessageFormat.format(
-						"Could not create new file [{0}].", path));
-			}
 		}
-		Callable<Void> writer = new Callable<Void>() {
+		if (!d.createNewFile()) {
 
-			private byte[] buff = resource.getData();
-			private File dest = d;
+			throw new IOException(MessageFormat.format(
+					"Could not create new file [{0}].", path));
+		}
+		if (!d.setReadable(resource.canRead())) {
+			throw new IOException(MessageFormat.format(
+					"Could not change parmission readable [{0}].", path));
+		}
+		if (!d.setWritable(resource.canWrite())) {
+			throw new IOException(MessageFormat.format(
+					"Could not change parmission writable [{0}].", path));
+		}
+		if (!d.setExecutable(resource.canExecute())) {
+			throw new IOException(MessageFormat.format(
+					"Could not change parmission executable [{0}].", path));
+		}
+		
+		Callable<Void> writer = new Callable<Void>() {
 
 			@Override
 			public Void call() throws Exception {
 
-				OutputStream os = null;
-
+				FileChannel srcChannel = resource.getData().getChannel();
+				FileChannel destChannel = new FileOutputStream(d).getChannel();
 				try {
-					os = new FileOutputStream(dest);
-					os.write(buff);
-					os.flush();
-
+					srcChannel.transferTo(0, srcChannel.size(), destChannel);
 				} finally {
-					if (os != null) {
-						os.close();
+					try {
+						destChannel.close();
+					} finally {
+						srcChannel.close();
 					}
 				}
 				return null;
@@ -87,13 +100,13 @@ public class ResourceWriter implements Closeable {
 		};
 
 		Future<Void> future = null;
-		synchronized (FIXED_WRITER) {
-			future = FIXED_WRITER.executor.submit(writer);
+		synchronized (FIXED_WRITER_THREAD) {
+			future = FIXED_WRITER_THREAD.submit(writer);
 		}
 		if (future != null) {
 			try {
 				try {
-					future.get(30000, TimeUnit.MILLISECONDS); // TODO
+					future.get(30000, TimeUnit.MILLISECONDS);
 				} catch (TimeoutException e) {
 					throw e;
 				} catch (InterruptedException e) {
@@ -106,21 +119,6 @@ public class ResourceWriter implements Closeable {
 				throw new IOException("Could not write the resource.", e);
 			}
 		}
-	}
-
-	private static volatile ResourceWriter FIXED_WRITER;
-	private ExecutorService executor;
-
-	private void defineWriter() {
-		synchronized (ResourceWriter.class) {
-			if (FIXED_WRITER == null) {
-				FIXED_WRITER = new ResourceWriter();
-			}
-		}
-	}
-
-	private ResourceWriter() {
-		this.executor = Executors.newFixedThreadPool(2); // TODO
 	}
 
 	@Override
