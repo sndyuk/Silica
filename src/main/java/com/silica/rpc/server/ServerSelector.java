@@ -67,7 +67,11 @@ public final class ServerSelector {
 				String[] addresses = Silica.getGlobalConfig("server.addresses").split(",");
 				
 				for (String address : addresses) {
-					if (address == null || address.length() == 0) {
+					if (address == null) {
+						continue;
+					}
+					address = address.trim();
+					if (address.length() == 0) {
 						continue;
 					}
 					if (serverMap.get(address) == null) {

@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.sndyuk</groupId>
 	<artifactId>silica</artifactId>
-	<version>0.0.4-SNAPSHOT</version>
+	<version>1.0.0-SNAPSHOT</version>
 	<name>Silica</name>
 	<description>A scalable service interfaces.</description>
 
@@ -30,9 +30,12 @@
 	<packaging>jar</packaging>
 
 	<distributionManagement>
-		<!-- mvn -DaltDeploymentRepository=snapshot-repo::default::file:../maven 
-			clean deploy -->
-		<!-- git push origin gh-pages -->
+		<!-- $ mvn -DaltDeploymentRepository=snapshot-repo::default::file:../maven clean deploy 
+		     $ cd ../maven
+		     $ git add -A
+		     $ git commit -m "..."
+		     $ git push origin gh-pages 
+		-->
 		<repository>
 			<id>repo</id>
 			<url>http://github.com/sndyuk/maven/silica/release</url>
@@ -44,6 +47,7 @@
 	</distributionManagement>
 
 	<build>
+	    <finalName>silica</finalName>
 		<plugins>
 			<plugin>
 				<groupId>com.mycila.maven-license-plugin</groupId>
@@ -71,7 +75,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<finalName>silica-${project.version}</finalName>
+					<finalName>silica</finalName>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -196,11 +200,6 @@
 			<version>${mockito.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- <dependency> -->
-		<!-- <groupId>net.schmizz</groupId> -->
-		<!-- <artifactId>sshj</artifactId> -->
-		<!-- <version>0.6.1</version> -->
-		<!-- </dependency> -->
 
 	</dependencies>
 </project>

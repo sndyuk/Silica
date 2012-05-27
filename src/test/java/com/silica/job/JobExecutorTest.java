@@ -131,6 +131,6 @@ public class JobExecutorTest {
 	@Test
 	public void testClean() throws Exception {
 
-//		ServerSelector.createSelector().cleanAll(true);
+		ServerSelector.createSelector().cleanAll(true);
 	}
 }

@@ -45,6 +45,7 @@ public class ServerContext {
 	private final int listenPort1;
 	private final int listenPort2;
 	private final Config conf;
+	private final String javaHome;
 	private final String basedir;
 	private final String resourcedir;
 	private final List<String> classPaths;
@@ -85,15 +86,16 @@ public class ServerContext {
 		this.internalAddress = InetAddress.getByName(publicAddress).getHostName();
 		this.listenPort1 = Integer.parseInt(conf.get(Config.KEY_LISTEN_PORT1));
 		this.listenPort2 = Integer.parseInt(conf.get(Config.KEY_LISTEN_PORT2));
+		this.javaHome = conf.get(Config.KEY_JAVA_HOME);
 		this.osClassPathsep = basedir.charAt(0) == '/' ? PATH_SEP_UNIX : PATH_SEP_WIN;
 		this.classPaths = new ArrayList<String>();
 		String[] s = conf.get(Config.KEY_CLASS_PATHS).split(",");
 		for (int i = 0; i < s.length; i++) {
-			addClassPath(resourcedir + s[i]);
+			addClassPath(resourcedir + s[i].trim());
 		}
 		s = Silica.getGlobalConfig(Config.KEY_CLONE_PATHS).split(",");
 		for (int i = 0; i < s.length; i++) {
-			addClassPath(resourcedir + s[i]);
+			addClassPath(resourcedir + s[i].trim());
 		}
 		String _charset = conf.get(Config.KEY_CHARSET);
 		if (_charset == null || _charset.length() == 0) {
@@ -169,6 +171,15 @@ public class ServerContext {
 	 */
 	public int getListenPort2() {
 		return listenPort2;
+	}
+	
+	/**
+	 * JAVA_HOMEを返す
+	 * 
+	 * @return JAVA_HOME
+	 */
+	public String getJavaHome() {
+		return javaHome;
 	}
 	
 	/**

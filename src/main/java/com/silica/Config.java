@@ -40,6 +40,7 @@ public final class Config {
 	public static final String KEY_HOST_ADDRESS = "host.address";
 	public static final String KEY_LISTEN_PORT1 = "listen.port.1";
 	public static final String KEY_LISTEN_PORT2 = "listen.port.2";
+	public static final String KEY_JAVA_HOME = "java.home";
 	public static final String KEY_CLASS_PATHS = "class.paths";
 	public static final String KEY_SERVICE_CLASS = "service.class";
 	public static final String KEY_CHARSET = "charset";
@@ -152,7 +153,6 @@ public final class Config {
 		{
 			String path = new File("").getAbsolutePath();
 			DEFAULT_ENTRIES.put("base.dir", path + "/");
-			DEFAULT_ENTRIES.put("version", "0.0.4-SNAPSHOT");
 		}
 
 		

@@ -87,12 +87,13 @@ public abstract class SecurePipedServer implements Server {
 			String bindCommand = MessageFormat.format(
 					getServerContext().getProperty("bind.command"),
 					String.valueOf(getServerContext().getListenPort1()),
+					getServerContext().getJavaHome(),
 					getServerContext().getClassPathString(), 
 					getServerContext().getPublicAddress(),
 					getServerContext().getResourceDirectory(),
 					Silica.getConfigPath(),
 					options.toString(),
-					Boolean.valueOf(true).toString());
+					Boolean.valueOf(false).toString()); // debug option true | false.
 			
 			LOG.debug("bind remote command: {}", bindCommand);
 			execute(bindCommand);
@@ -172,7 +173,7 @@ public abstract class SecurePipedServer implements Server {
 		String[] clonepaths = clone.split(",");
 
 		for (String clonepath : clonepaths) {
-			transportFile(Silica.getBaseDirectory(), clonepath);
+			transportFile(Silica.getBaseDirectory(), clonepath.trim());
 		}
 	}
 

@@ -135,10 +135,11 @@ public class DefaultServer extends SecurePipedServer {
 		String command = MessageFormat.format(
 				conf.getActivationCommand(),
 				String.valueOf(conf.getListenPort1()),
+				conf.getJavaHome(),
 				conf.getClassPathString(), 
 				conf.getInternalAddress(),
 				getServerContext().getResourceDirectory(),
-				Boolean.valueOf(true).toString());
+				Boolean.valueOf(false).toString()); // RMI debug mode = true | false.
 
 		LOG.debug("Server activation command: {}", command);
 
@@ -270,11 +271,13 @@ public class DefaultServer extends SecurePipedServer {
 		try {
 
 			Registry registry = getRegistry();
+			LOG.debug("Connecting to RMI server...");
 			registry.lookup("_silica");
 
 			return true;
 
 		} catch (ConnectException e) {
+			LOG.debug("Could not find a active RMI server.");
 			return false;
 		} catch (NotBoundException e) {
 			return true;
