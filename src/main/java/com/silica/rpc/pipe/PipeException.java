@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -17,17 +17,17 @@ package com.silica.rpc.pipe;
 
 public class PipeException extends Exception {
 
-	private static final long serialVersionUID = -6490607896125043064L;
+    private static final long serialVersionUID = -6490607896125043064L;
 
-	public PipeException(String s, Exception e) {
-		super(s, e);
-	}
-	
-	public PipeException(String s) {
-		super(s);
-	}
-	
-	public PipeException(Exception e) {
-		super(e);
-	}
+    public PipeException(String s, Exception e) {
+        super(s, e);
+    }
+
+    public PipeException(String s) {
+        super(s);
+    }
+
+    public PipeException(Exception e) {
+        super(e);
+    }
 }

@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ import java.rmi.RemoteException;
  * サービス例外
  */
 public class ServiceException extends RemoteException {
-	
-	private static final long serialVersionUID = -2562933144648421446L;
 
-	public ServiceException(String s, Exception e) {
-		super(s, e);
-	}
-	
-	public ServiceException(String s) {
-		super(s);
-	}
+    private static final long serialVersionUID = -2562933144648421446L;
+
+    public ServiceException(String s, Exception e) {
+        super(s, e);
+    }
+
+    public ServiceException(String s) {
+        super(s);
+    }
 }

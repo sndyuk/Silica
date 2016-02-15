@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -24,33 +24,37 @@ import java.io.IOException;
  */
 public class ServerException extends IOException {
 
-	private static final long serialVersionUID = -8698214427617984871L;
+    private static final long serialVersionUID = -8698214427617984871L;
 
-	/**
-	 * コンストラクタ
-	 * 
-	 * @param s エラーの詳細
-	 * @param e 原因
-	 */
-	public ServerException(String s, Exception e) {
-		super(s, e);
-	}
-	
-	/**
-	 * コンストラクタ
-	 * 
-	 * @param s エラーの詳細
-	 */
-	public ServerException(String s) {
-		super(s);
-	}
-	
-	/**
-	 * コンストラクタ
-	 * 
-	 * @param e 原因
-	 */
-	public ServerException(Exception e) {
-		super(e);
-	}
+    /**
+     * コンストラクタ
+     * 
+     * @param s
+     *            エラーの詳細
+     * @param e
+     *            原因
+     */
+    public ServerException(String s, Exception e) {
+        super(s, e);
+    }
+
+    /**
+     * コンストラクタ
+     * 
+     * @param s
+     *            エラーの詳細
+     */
+    public ServerException(String s) {
+        super(s);
+    }
+
+    /**
+     * コンストラクタ
+     * 
+     * @param e
+     *            原因
+     */
+    public ServerException(Exception e) {
+        super(e);
+    }
 }

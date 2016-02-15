@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -39,246 +39,245 @@ import com.silica.service.ServiceException;
  */
 public abstract class SecurePipedServer implements Server {
 
-	private static final Logger LOG = LoggerFactory.getLogger(SecurePipedServer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SecurePipedServer.class);
 
-	private ServerContext context;
-	private Pipe pipe;
-	
-	public SecurePipedServer(ServerContext context) {
-		this.context = context;
-	}
-	
-	/**
-	 * サービスを実行可能状態にする
-	 * 
-	 * @param clazz
-	 * @param service
-	 * @throws ServerException
-	 */
-	protected abstract void bindLocal(Service service) throws ServerException;
+    private ServerContext context;
+    private Pipe pipe;
 
-	/**
-	 * ssh経由でコマンドを投げてサービスを実行可能状態にする
-	 * 
-	 * @param clazz
-	 * @param service
-	 * @throws ServerException
-	 */
-	protected void bindRemote(Service service) throws ServerException {
-		String serivceName = service.getClass().getName();
-		try {
+    public SecurePipedServer(ServerContext context) {
+        this.context = context;
+    }
 
-			StringBuilder options = new StringBuilder();
-			options.append(" \"-s ").append(Config.KEY_HOST_ADDRESS).append("=").append(getServerContext().getPublicAddress());
-			options.append(" -s ").append(Config.KEY_BASE_DIR).append("=").append(getServerContext().getBasedir());
-			options.append(" -s ").append(Config.KEY_RESOURCE_DIR).append("=").append(getServerContext().getResourceDirectory());
-			options.append(" -s ").append(Config.KEY_RESOURCE_ID).append("=").append(Silica.getResourceID());
-			options.append(" -s ").append(Config.KEY_CLASS_PATHS).append("=");
-			String[] paths = getServerContext().getClassPaths();
-			for (String path : paths) {
-				options.append(path);
-				options.append(",");
-			}
-			if (paths.length > 0) {
-				options.deleteCharAt(options.length() - 1);
-			}
-			options.append(" -s ").append(Config.KEY_SERVICE_CLASS).append("=").append(serivceName);
-			options.append("\"");
-			String bindCommand = MessageFormat.format(
-					getServerContext().getProperty("bind.command"),
-					String.valueOf(getServerContext().getListenPort1()),
-					getServerContext().getJavaHome(),
-					getServerContext().getClassPathString(), 
-					getServerContext().getPublicAddress(),
-					getServerContext().getResourceDirectory(),
-					Silica.getConfigPath(),
-					options.toString(),
-					Boolean.valueOf(false).toString()); // debug option true | false.
-			
-			LOG.debug("bind remote command: {}", bindCommand);
-			execute(bindCommand);
+    /**
+     * サービスを実行可能状態にする
+     * 
+     * @param clazz
+     * @param service
+     * @throws ServerException
+     */
+    protected abstract void bindLocal(Service service) throws ServerException;
 
-		} catch (Exception e) {
-			throw new ServerException(MessageFormat.format(
-					"Could not bind the class name:[{0}].", serivceName), e);
-		}
-	}
-	
-	@Override
-	public void bind(Service service) throws ServerException {
-		
-		if (getServerContext().isRemote()) {
+    /**
+     * ssh経由でコマンドを投げてサービスを実行可能状態にする
+     * 
+     * @param clazz
+     * @param service
+     * @throws ServerException
+     */
+    protected void bindRemote(Service service) throws ServerException {
+        String serivceName = service.getClass().getName();
+        try {
 
-			bindRemote(service);
+            StringBuilder options = new StringBuilder();
+            options.append(" \"-s ").append(Config.KEY_HOST_ADDRESS).append("=").append(getServerContext().getPublicAddress());
+            options.append(" -s ").append(Config.KEY_BASE_DIR).append("=").append(getServerContext().getBasedir());
+            options.append(" -s ").append(Config.KEY_RESOURCE_DIR).append("=").append(getServerContext().getResourceDirectory());
+            options.append(" -s ").append(Config.KEY_RESOURCE_ID).append("=").append(Silica.getResourceID());
+            options.append(" -s ").append(Config.KEY_CLASS_PATHS).append("=");
+            String[] paths = getServerContext().getClassPaths();
+            for (String path : paths) {
+                options.append(path);
+                options.append(",");
+            }
+            if (paths.length > 0) {
+                options.deleteCharAt(options.length() - 1);
+            }
+            options.append(" -s ").append(Config.KEY_SERVICE_CLASS).append("=").append(serivceName);
+            options.append("\"");
+            String bindCommand = MessageFormat.format(
+                    getServerContext().getProperty("bind.command"),
+                    String.valueOf(getServerContext().getListenPort1()),
+                    getServerContext().getJavaHome(),
+                    getServerContext().getClassPathString(),
+                    getServerContext().getPublicAddress(),
+                    getServerContext().getResourceDirectory(),
+                    Silica.getConfigPath(),
+                    options.toString(),
+                    Boolean.valueOf(false).toString()); // debug option true | false.
 
-		} else {
+            LOG.debug("bind remote command: {}", bindCommand);
+            execute(bindCommand);
 
-			bindLocal(service);
-		}
-	}
-	
-	@Override
-	public void activate() throws ServerException {
+        } catch (Exception e) {
+            throw new ServerException(MessageFormat.format(
+                    "Could not bind the class name:[{0}].", serivceName), e);
+        }
+    }
 
-		try {
+    @Override
+    public void bind(Service service) throws ServerException {
 
-			if (isActive()) {
+        if (getServerContext().isRemote()) {
 
-				LOG.debug("The server already has been activated.");
-				return;
-			}
-			cloneModules();
-			
-			LOG.debug("The Server is now activated.");
-		} catch (IOException e) {
+            bindRemote(service);
 
-			disactivate();
-			throw new ServerException(e);
-		}
-	}
+        } else {
 
-	@Override
-	public void cleanOldModules(boolean wait) {
-		if (!getServerContext().isRemote()) {
-			return;
-		}
-		if (wait) {
-			try {
-				Silica.execute(new OldModuleCleaner());
-			} catch (ServiceException e) {
-				LOG.warn("", e);
-			}
-		} else {
-			Silica.executeAsync(new OldModuleCleaner(), new Callback<Boolean>() {
+            bindLocal(service);
+        }
+    }
 
-				@Override
-				public void execute(Boolean result) {
-					if (result) {
-						LOG.debug("Cleaned old modules.");
-					} else {
-						LOG.warn("Could not clean old modules.");
-					}
-				}
-			});			
-		}
-	}
-	
-	private void cloneModules() throws ServerException {
-		if (!getServerContext().isRemote()) {
-			// localhost <-> localhostの時は転送不要
-			return;
-		}
-		String clone = Silica.getGlobalConfig(Config.KEY_CLONE_PATHS);
+    @Override
+    public void activate() throws ServerException {
 
-		String[] clonepaths = clone.split(",");
+        try {
 
-		for (String clonepath : clonepaths) {
-			transportFile(Silica.getBaseDirectory(), clonepath.trim());
-		}
-	}
+            if (isActive()) {
 
-	protected void transportFile(String localdir, String name) throws ServerException {
-		if (name == null || name.length() == 0) {
+                LOG.debug("The server already has been activated.");
+                return;
+            }
+            cloneModules();
 
-			return;
-		}
-		File f = new File(localdir, name);
-		File[] fc = null;
-		if (f.isFile()) {
-			String dest = getServerContext().getResourceDirectory();
-			if (LOG.isDebugEnabled()) {
-				LOG.debug("Resource output: {}{} to {}//{}", 
-						new String[] {localdir, name, getServerContext().getPublicAddress(), dest});
-			}
+            LOG.debug("The Server is now activated.");
+        } catch (IOException e) {
 
-			put(dest, new Resource(f.getAbsolutePath(), name));
+            disactivate();
+            throw new ServerException(e);
+        }
+    }
 
-		} else if ((fc = f.listFiles()) != null && fc.length > 0) {
+    @Override
+    public void cleanOldModules(boolean wait) {
+        if (!getServerContext().isRemote()) {
+            return;
+        }
+        if (wait) {
+            try {
+                Silica.execute(new OldModuleCleaner());
+            } catch (ServiceException e) {
+                LOG.warn("", e);
+            }
+        } else {
+            Silica.executeAsync(new OldModuleCleaner(), new Callback<Boolean>() {
 
-			for (File c : fc) {
+                @Override
+                public void execute(Boolean result) {
+                    if (result) {
+                        LOG.debug("Cleaned old modules.");
+                    } else {
+                        LOG.warn("Could not clean old modules.");
+                    }
+                }
+            });
+        }
+    }
 
-				if (name.endsWith("/")) {
+    private void cloneModules() throws ServerException {
+        if (!getServerContext().isRemote()) {
+            // localhost <-> localhostの時は転送不要
+            return;
+        }
+        String clone = Silica.getGlobalConfig(Config.KEY_CLONE_PATHS);
 
-					transportFile(localdir, name + c.getName());
+        String[] clonepaths = clone.split(",");
 
-				} else {
+        for (String clonepath : clonepaths) {
+            transportFile(Silica.getBaseDirectory(), clonepath.trim());
+        }
+    }
 
-					transportFile(localdir, name + "/" + c.getName());
-				}
-			}
-		}
-	}
+    protected void transportFile(String localdir, String name) throws ServerException {
+        if (name == null || name.length() == 0) {
 
-	@Override
-	public ServerContext getServerContext() {
+            return;
+        }
+        File f = new File(localdir, name);
+        File[] fc = null;
+        if (f.isFile()) {
+            String dest = getServerContext().getResourceDirectory();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Resource output: {}{} to {}//{}",
+                        localdir, name, getServerContext().getPublicAddress(), dest);
+            }
 
-		return context;
-	}
+            put(dest, new Resource(f.getAbsolutePath(), name));
 
+        } else if ((fc = f.listFiles()) != null && fc.length > 0) {
 
-	protected void put(String dest, Resource... resources)
-			throws ServerException {
+            for (File c : fc) {
 
-		try {
+                if (name.endsWith("/")) {
 
-			if (pipe == null) {
+                    transportFile(localdir, name + c.getName());
 
-				pipe = createPipe();
-			}
-			pipe.put(dest, resources);
-			
-		} catch (PipeException e) {
+                } else {
 
-			throw new ServerException(e);
-		}
-	}
+                    transportFile(localdir, name + "/" + c.getName());
+                }
+            }
+        }
+    }
 
-	protected void execute(String command) throws ServerException {
+    @Override
+    public ServerContext getServerContext() {
 
-		try {
+        return context;
+    }
 
-			if (pipe == null) {
+    protected void put(String dest, Resource... resources)
+            throws ServerException {
 
-				pipe = createPipe();
-			}
-			pipe.execute(command);
+        try {
 
-		} catch (PipeException e) {
+            if (pipe == null) {
 
-			throw new ServerException(e);
-		}
-	}
+                pipe = createPipe();
+            }
+            pipe.put(dest, resources);
 
-	@Override
-	public boolean isActive() {
+        } catch (PipeException e) {
 
-		synchronized (this) {
+            throw new ServerException(e);
+        }
+    }
 
-			return context != null;
-		}
-	}
+    protected void execute(String command) throws ServerException {
 
-	@Override
-	public void disactivate() throws ServerException {
+        try {
 
-		synchronized (this) {
+            if (pipe == null) {
 
-			if (pipe != null) {
+                pipe = createPipe();
+            }
+            pipe.execute(command);
 
-				LOG.info("Disconnecting the server [{}].", getServerContext().getPublicAddress());
+        } catch (PipeException e) {
 
-				pipe.disconnect();
+            throw new ServerException(e);
+        }
+    }
 
-				LOG.info("Disconnected the server.");
-			}
+    @Override
+    public boolean isActive() {
 
-			pipe = null;
-			context = null;
-		}
-	}
+        synchronized (this) {
 
-	protected Pipe createPipe() throws PipeException {
+            return context != null;
+        }
+    }
 
-		return PipeHolder.getPipe(this);
-	}
+    @Override
+    public void disactivate() throws ServerException {
+
+        synchronized (this) {
+
+            if (pipe != null) {
+
+                LOG.info("Disconnecting the server [{}].", getServerContext().getPublicAddress());
+
+                pipe.disconnect();
+
+                LOG.info("Disconnected the server.");
+            }
+
+            pipe = null;
+            context = null;
+        }
+    }
+
+    protected Pipe createPipe() throws PipeException {
+
+        return PipeHolder.getPipe(this);
+    }
 }

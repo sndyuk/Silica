@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -26,13 +26,13 @@ import com.silica.service.Service;
  */
 public class RoundRobinServerSelector implements SelectLogic {
 
-	private int pos = -1;
-	
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public synchronized Server select(Service service, List<Server> activeServers) {
-		return activeServers.get((activeServers.size() - 1) > (++pos) ? pos : (pos = 0));
-	}
+    private int pos = -1;
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public synchronized Server select(Service service, List<Server> activeServers) {
+        return activeServers.get((activeServers.size() - 1) > (++pos) ? pos : (pos = 0));
+    }
 }

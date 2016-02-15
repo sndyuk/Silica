@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ import java.io.Serializable;
  */
 public interface Job<R extends Serializable> extends Serializable {
 
-	/**
-	 * <p>
-	 * Jobを実行する
-	 * </p>
-	 * 
-	 * @return Jobの実行結果
-	 * @throws JobException
-	 *             Jobの実行に失敗
-	 */
-	R execute() throws JobException;
+    /**
+     * <p>
+     * Jobを実行する
+     * </p>
+     * 
+     * @return Jobの実行結果
+     * @throws JobException
+     *             Jobの実行に失敗
+     */
+    R execute() throws JobException;
 }

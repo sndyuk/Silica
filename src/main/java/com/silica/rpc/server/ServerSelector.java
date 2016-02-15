@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -36,169 +36,170 @@ import com.silica.service.Service;
  * <p>
  * サービスの実行に適切なサーバを選択したり
  * </p>
+ * 
  * @author sndyuk
  */
 public final class ServerSelector {
 
-	private static final Logger LOG = LoggerFactory
-			.getLogger(ServerSelector.class);
+    private static final Logger LOG = LoggerFactory
+            .getLogger(ServerSelector.class);
 
-	private SelectLogic selectLogic;
-	private TreeMap<String, Server> serverMap = new TreeMap<String, Server>();
-	private List<String> serverMapsKeyList = new ArrayList<String>();
+    private SelectLogic selectLogic;
+    private TreeMap<String, Server> serverMap = new TreeMap<String, Server>();
+    private List<String> serverMapsKeyList = new ArrayList<String>();
 
-	private ServerSelector() {
+    private ServerSelector() {
 
-		try {
-			{
-				String classname = Silica
-						.getGlobalConfig("server.select.logic");
+        try {
+            {
+                String classname = Silica
+                        .getGlobalConfig("server.select.logic");
 
-				Class<?> s = ServerSelector.class.getClassLoader().loadClass(
-						classname);
+                Class<?> s = ServerSelector.class.getClassLoader().loadClass(
+                        classname);
 
-				selectLogic = (SelectLogic) s.newInstance();
+                selectLogic = (SelectLogic) s.newInstance();
 
-			}
-			{
-				String classname = Silica.getGlobalConfig("server.class");
-				Class<?> s = ServerSelector.class.getClassLoader().loadClass(classname);
-				
-				String[] addresses = Silica.getGlobalConfig("server.addresses").split(",");
-				
-				for (String address : addresses) {
-					if (address == null) {
-						continue;
-					}
-					address = address.trim();
-					if (address.length() == 0) {
-						continue;
-					}
-					if (serverMap.get(address) == null) {
-						createServer(address, s);
-					} else {
-						LOG.warn("server [{}] is already in silica config file.", address);
-					}
-				}
-			}
-		} catch (Exception e) {
-			
-			LOG.error("Could not initialize ServerSelector.", e);
-		}
-	}
+            }
+            {
+                String classname = Silica.getGlobalConfig("server.class");
+                Class<?> s = ServerSelector.class.getClassLoader().loadClass(classname);
 
-	private void createServer(String address, Class<?> serverClass) {
-		
-		try {
+                String[] addresses = Silica.getGlobalConfig("server.addresses").split(",");
 
-			address = address.replaceAll("[ ].", "");
+                for (String address : addresses) {
+                    if (address == null) {
+                        continue;
+                    }
+                    address = address.trim();
+                    if (address.length() == 0) {
+                        continue;
+                    }
+                    if (serverMap.get(address) == null) {
+                        createServer(address, s);
+                    } else {
+                        LOG.warn("server [{}] is already in silica config file.", address);
+                    }
+                }
+            }
+        } catch (Exception e) {
 
-			Constructor<?> cons = serverClass.getConstructor(ServerContext.class);
-			
-			ServerContext sc = new ServerContext(address);
-			sc.setEnable(true);
-			Server server = (Server)cons.newInstance(new Object[]{sc});
-			serverMap.put(address, server);
-			serverMapsKeyList.add(address);
+            LOG.error("Could not initialize ServerSelector.", e);
+        }
+    }
 
-			LOG.debug("cached server: {}", address);
-			
-		} catch (Exception e) {
-			LOG.error(MessageFormat.format(
-					"Could not create Server [{0}].", serverClass.getName()), e);
-		}
-	}
-	
-	private static ServerSelector SINGLE_SELECTOR = new ServerSelector();
-	
-	/**
-	 * サーバセレクターを生成する
-	 * 
-	 * @return 生成されたサーバセレクター
-	 */
-	public static ServerSelector createSelector() {
-		
-		return SINGLE_SELECTOR;
-	}
-	
-	/**
-	 * 有効なサーバを選択して返す
-	 * 
-	 * @param service 実行予定のサービス
-	 * @return サービスを実行するためのサーバ
-	 */
-	public Server select(Service service) {
-		List<Server> activeServers = new ArrayList<Server>();
-		for (Entry<String, Server> entry : serverMap.entrySet()) {
-			if (entry.getValue().getServerContext().isEnable()) {
-				activeServers.add(entry.getValue());
-			}
-		}
-		if (activeServers.size() == 0) {
+    private void createServer(String address, Class<?> serverClass) {
 
-			throw new IllegalStateException("Server not available.");
-		}
+        try {
 
-		return selectLogic.select(service, activeServers);
-	}
+            address = address.replaceAll("[ ].", "");
 
-	/**
-	 * 全てのサーバを返す
-	 * 
-	 * @return 用意されている全てのサーバ
-	 */
-	Map<String, Server> selectAll() {
+            Constructor<?> cons = serverClass.getConstructor(ServerContext.class);
 
-		return Collections.unmodifiableMap(serverMap);
-	}
-	
-	/**
-	 * 全てのサーバを選択不可能にする
-	 */
-	public void setDisactiveAll() throws ServerException {
+            ServerContext sc = new ServerContext(address);
+            sc.setEnable(true);
+            Server server = (Server) cons.newInstance(new Object[] { sc });
+            serverMap.put(address, server);
+            serverMapsKeyList.add(address);
 
-		try {
-			Map<String, Server> servers = selectAll();
-			
-			for (Entry<String, Server> entry : servers.entrySet()) {
-				Server server = entry.getValue();
+            LOG.debug("cached server: {}", address);
 
-				server.getServerContext().setEnable(false);
-				server.disactivate();
-			}
-		} catch (Exception e) {
-			LOG.error(e.toString(), e);
-			throw new ServerException(e);
-		}
-	}
-	
-	
-	/**
-	 * 全てのサーバのリソースを掃除する
-	 */
-	public void cleanAll(boolean wait) throws ServerException {
+        } catch (Exception e) {
+            LOG.error(MessageFormat.format(
+                    "Could not create Server [{0}].", serverClass.getName()), e);
+        }
+    }
 
-		try {
-			Map<String, Server> servers = selectAll();
-			
-			for (Entry<String, Server> entry : servers.entrySet()) {
-				Server server = entry.getValue();
+    private static ServerSelector SINGLE_SELECTOR = new ServerSelector();
 
-				server.cleanOldModules(wait);
-			}
-		} catch (Exception e) {
-			LOG.error(e.toString(), e);
-			throw new ServerException(e);
-		}
-	}
+    /**
+     * サーバセレクターを生成する
+     * 
+     * @return 生成されたサーバセレクター
+     */
+    public static ServerSelector createSelector() {
 
-	/**
-	 * ローカルサーバを返す
-	 * 
-	 * @return ローカルサーバ
-	 */
-	public Server getLocalServer() {
+        return SINGLE_SELECTOR;
+    }
 
-		return serverMap.get(Silica.getGlobalConfig(Config.KEY_HOST_ADDRESS));
-	}
+    /**
+     * 有効なサーバを選択して返す
+     * 
+     * @param service
+     *            実行予定のサービス
+     * @return サービスを実行するためのサーバ
+     */
+    public Server select(Service service) {
+        List<Server> activeServers = new ArrayList<Server>();
+        for (Entry<String, Server> entry : serverMap.entrySet()) {
+            if (entry.getValue().getServerContext().isEnable()) {
+                activeServers.add(entry.getValue());
+            }
+        }
+        if (activeServers.size() == 0) {
+
+            throw new IllegalStateException("Server not available.");
+        }
+
+        return selectLogic.select(service, activeServers);
+    }
+
+    /**
+     * 全てのサーバを返す
+     * 
+     * @return 用意されている全てのサーバ
+     */
+    Map<String, Server> selectAll() {
+
+        return Collections.unmodifiableMap(serverMap);
+    }
+
+    /**
+     * 全てのサーバを選択不可能にする
+     */
+    public void setDisactiveAll() throws ServerException {
+
+        try {
+            Map<String, Server> servers = selectAll();
+
+            for (Entry<String, Server> entry : servers.entrySet()) {
+                Server server = entry.getValue();
+
+                server.getServerContext().setEnable(false);
+                server.disactivate();
+            }
+        } catch (Exception e) {
+            LOG.error(e.toString(), e);
+            throw new ServerException(e);
+        }
+    }
+
+    /**
+     * 全てのサーバのリソースを掃除する
+     */
+    public void cleanAll(boolean wait) throws ServerException {
+
+        try {
+            Map<String, Server> servers = selectAll();
+
+            for (Entry<String, Server> entry : servers.entrySet()) {
+                Server server = entry.getValue();
+
+                server.cleanOldModules(wait);
+            }
+        } catch (Exception e) {
+            LOG.error(e.toString(), e);
+            throw new ServerException(e);
+        }
+    }
+
+    /**
+     * ローカルサーバを返す
+     * 
+     * @return ローカルサーバ
+     */
+    public Server getLocalServer() {
+
+        return serverMap.get(Silica.getGlobalConfig(Config.KEY_HOST_ADDRESS));
+    }
 }

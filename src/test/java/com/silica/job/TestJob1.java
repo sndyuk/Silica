@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@
  */
 package com.silica.job;
 
-
 public class TestJob1 implements Job<String> {
 
-	private static final long serialVersionUID = 7928128350315086340L;
+    private static final long serialVersionUID = 7928128350315086340L;
 
-	@Override
-	public String execute() throws JobException {
-		return "success";
-	}
+    @Override
+    public String execute() throws JobException {
+        return "success";
+    }
 }

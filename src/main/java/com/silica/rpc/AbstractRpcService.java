@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -27,60 +27,60 @@ import com.silica.service.ServiceException;
 
 public abstract class AbstractRpcService implements Service {
 
-	private static final long serialVersionUID = 5310157636970723507L;
+    private static final long serialVersionUID = 5310157636970723507L;
 
-	private static final Logger LOG = LoggerFactory.getLogger(AbstractRpcService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractRpcService.class);
 
-	private Resource[] resources;
+    private Resource[] resources;
 
-	protected AbstractRpcService() {
-	}
+    protected AbstractRpcService() {
+    }
 
-	public boolean hasResource() {
-		return resources != null && resources.length > 0;
-	}
+    public boolean hasResource() {
+        return resources != null && resources.length > 0;
+    }
 
-	@Override
-	public void setResources(String destdir, Resource... resources) throws ServiceException {
+    @Override
+    public void setResources(String destdir, Resource... resources) throws ServiceException {
 
-		ResourceWriter rw = null;
+        ResourceWriter rw = null;
 
-		try {
-			try {
-				for (Resource resource : resources) {
+        try {
+            try {
+                for (Resource resource : resources) {
 
-					File rf = new File(resource.getName());
-					String destpath = destdir + rf.getName();
+                    File rf = new File(resource.getName());
+                    String destpath = destdir + rf.getName();
 
-					LOG.debug("destpath: {}", destpath);
+                    LOG.debug("destpath: {}", destpath);
 
-					rw = new ResourceWriter(resource);
-					rw.publish(destpath);
-					resource.close();
-				}
-			} catch (Exception e) {
+                    rw = new ResourceWriter(resource);
+                    rw.publish(destpath);
+                    resource.close();
+                }
+            } catch (Exception e) {
 
-				for (Resource resource : resources) {
-					File f = new File(resource.getName());
-					if (!f.delete()) {
-						LOG.error("Could not rollback: deleting file [{}].",
-								resource.getName());
-					}
-					resource.close();
-				}
-				throw e;
+                for (Resource resource : resources) {
+                    File f = new File(resource.getName());
+                    if (!f.delete()) {
+                        LOG.error("Could not rollback: deleting file [{}].",
+                                resource.getName());
+                    }
+                    resource.close();
+                }
+                throw e;
 
-			} finally {
+            } finally {
 
-				if (rw != null) {
-					rw.close();
-				}
-			}
-		} catch (Exception e) {
+                if (rw != null) {
+                    rw.close();
+                }
+            }
+        } catch (Exception e) {
 
-			throw new ServiceException("Could not publish the resource.", e);
-		}
+            throw new ServiceException("Could not publish the resource.", e);
+        }
 
-		this.resources = resources;
-	}
+        this.resources = resources;
+    }
 }

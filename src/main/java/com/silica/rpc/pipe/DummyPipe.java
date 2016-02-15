@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -33,88 +33,86 @@ import com.silica.rpc.server.Server;
  */
 public class DummyPipe extends Pipe {
 
-	private static final Logger LOG = LoggerFactory.getLogger(DummyPipe.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DummyPipe.class);
 
-	private Server server;
-	private int connectionTimeout = 10000;
+    private Server server;
+    private int connectionTimeout = 10000;
 
-	public DummyPipe() {
-		LOG.debug("created dummy pipe for localhost.");
-	}
+    public DummyPipe() {
+        LOG.debug("created dummy pipe for localhost.");
+    }
 
-	@Override
-	protected void connect(Server server) throws PipeException {
-		this.server = server;
-	}
+    @Override
+    protected void connect(Server server) throws PipeException {
+        this.server = server;
+    }
 
-	@Override
-	public void disconnect() {
+    @Override
+    public void disconnect() {
 
-		// nop : no need to disconnect.
-	}
+        // nop : no need to disconnect.
+    }
 
-	@Override
-	public boolean isConnected() {
+    @Override
+    public boolean isConnected() {
 
-		return true;
-	}
+        return true;
+    }
 
-	@Override
-	public void put(String dest, Resource... resources) throws PipeException {
+    @Override
+    public void put(String dest, Resource... resources) throws PipeException {
 
-		File df = new File(dest);
-		if (!df.exists() && !df.mkdirs()) {
+        File df = new File(dest);
+        if (!df.exists() && !df.mkdirs()) {
 
-			throw new PipeException(MessageFormat.format(
-					"Could not make directry [{0}].", dest));
-		}
-		for (Resource resource : resources) {
-			try {
+            throw new PipeException(MessageFormat.format(
+                    "Could not make directry [{0}].", dest));
+        }
+        for (Resource resource : resources) {
+            try (ResourceWriter writer = new ResourceWriter(resource)) {
 
-				ResourceWriter writer = new ResourceWriter(resource);
-				writer.publish(new File(df, resource.getName()).getAbsolutePath());
+                writer.publish(new File(df, resource.getName()).getAbsolutePath());
 
-			} catch (IOException e) {
+            } catch (IOException e) {
 
-				throw new PipeException(MessageFormat.format(
-						"Could not put resource [{0}].", resource.getName()), e);
-			}
-		}
-	}
+                throw new PipeException(MessageFormat.format(
+                        "Could not put resource [{0}].", resource.getName()), e);
+            }
+        }
+    }
 
+    @Override
+    public void execute(String command) throws PipeException {
 
-	@Override
-	public void execute(String command) throws PipeException {
+        final String[] c = command.split(" ");
 
-		final String[] c = command.split(" ");
+        Process p = null;
+        try {
 
-		Process p = null;
-		try {
+            ProcessBuilder pb = new ProcessBuilder().command(c);
+            p = pb.start();
+            Thread dErr = null;
+            Thread dStd = null;
+            if (LOG.isDebugEnabled()) {
+                dErr = debug(p.getErrorStream(), server.getServerContext().getCharset());
+                dStd = debug(p.getInputStream(), server.getServerContext().getCharset());
+            }
+            p.waitFor();
+            if (LOG.isDebugEnabled()) {
+                dErr.join(connectionTimeout);
+                dStd.join(connectionTimeout);
+            }
 
-			ProcessBuilder pb = new ProcessBuilder().command(c);
-			p = pb.start();
-			Thread dErr = null;
-			Thread dStd = null;
-			if (LOG.isDebugEnabled()) {
-				dErr = debug(p.getErrorStream(), server.getServerContext().getCharset());
-				dStd = debug(p.getInputStream(), server.getServerContext().getCharset());
-			}
-			p.waitFor();
-			if (LOG.isDebugEnabled()) {
-				dErr.join(connectionTimeout);
-				dStd.join(connectionTimeout);
-			}
-				
-		} catch (Exception e) {
+        } catch (Exception e) {
 
-			throw new PipeException(MessageFormat.format(
-					"Could not execute the command [{0}]", command), e);
-		} finally {
+            throw new PipeException(MessageFormat.format(
+                    "Could not execute the command [{0}]", command), e);
+        } finally {
 
-			if (p != null) {
+            if (p != null) {
 
-				p.destroy();
-			}
-		}
-	}
+                p.destroy();
+            }
+        }
+    }
 }

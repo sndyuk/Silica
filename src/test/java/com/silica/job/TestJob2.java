@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,28 +19,28 @@ import java.math.BigDecimal;
 
 public class TestJob2 implements Job<BigDecimal[]> {
 
-	private static final long serialVersionUID = 7928128350315086340L;
+    private static final long serialVersionUID = 7928128350315086340L;
 
-	private BigDecimal a;
-	private BigDecimal b;
-	private int size;
-	
-	public TestJob2(BigDecimal a, BigDecimal b, int size) {
-		this.a = a;
-		this.b = b;
-		this.size = size;
-	}
-	
-	@Override
-	public BigDecimal[] execute() throws JobException {
-		
-		BigDecimal[] ret = new BigDecimal[size];
-		
-		for (int i = 0; i < ret.length; i++) {
-			
-			ret[i] = a.add(b);
-		}
-		
-		return ret;
-	}
+    private BigDecimal a;
+    private BigDecimal b;
+    private int size;
+
+    public TestJob2(BigDecimal a, BigDecimal b, int size) {
+        this.a = a;
+        this.b = b;
+        this.size = size;
+    }
+
+    @Override
+    public BigDecimal[] execute() throws JobException {
+
+        BigDecimal[] ret = new BigDecimal[size];
+
+        for (int i = 0; i < ret.length; i++) {
+
+            ret[i] = a.add(b);
+        }
+
+        return ret;
+    }
 }

@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -36,38 +36,38 @@ import com.silica.service.ServiceException;
  *            Job実行結果
  */
 public class JobExecutor<R extends Serializable> implements Callable<R>,
-		Serializable {
+        Serializable {
 
-	private static final long serialVersionUID = -5579620009129572616L;
+    private static final long serialVersionUID = -5579620009129572616L;
 
-	private final Job<R> job;
+    private final Job<R> job;
 
-	/**
-	 * コンストラクタ
-	 * 
-	 * @param job
-	 *            実行対象のJob
-	 */
-	public JobExecutor(Job<R> job) {
-		this.job = job;
-	}
+    /**
+     * コンストラクタ
+     * 
+     * @param job
+     *            実行対象のJob
+     */
+    public JobExecutor(Job<R> job) {
+        this.job = job;
+    }
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see java.util.concurrent.Callable#call()
-	 */
-	@Override
-	public R call() throws ServiceException {
+    /*
+     * (non-Javadoc)
+     * 
+     * @see java.util.concurrent.Callable#call()
+     */
+    @Override
+    public R call() throws ServiceException {
 
-		try {
-			
-			Service service = new ProxyService(Silica.getServiceClass());
-			return service.execute(job);
-			
-		} catch (RemoteException e) {
+        try {
 
-			throw new ServiceException("", e);
-		}
-	}
+            Service service = new ProxyService(Silica.getServiceClass());
+            return service.execute(job);
+
+        } catch (RemoteException e) {
+
+            throw new ServiceException("", e);
+        }
+    }
 }

@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -26,23 +26,23 @@ import com.silica.service.ServiceException;
 
 public class DefaultRpcService extends AbstractRpcService {
 
-	private static final long serialVersionUID = -3022485268312130996L;
+    private static final long serialVersionUID = -3022485268312130996L;
 
-	private static final Logger LOG = LoggerFactory
-			.getLogger(DefaultRpcService.class);
+    private static final Logger LOG = LoggerFactory
+            .getLogger(DefaultRpcService.class);
 
-	@Override
-	public <R extends Serializable> R execute(Job<R> job)
-			throws ServiceException {
+    @Override
+    public <R extends Serializable> R execute(Job<R> job)
+            throws ServiceException {
 
-		LOG.debug("execute Job: [{}]", job.toString());
+        LOG.debug("execute Job: [{}]", job.toString());
 
-		try {
+        try {
 
-			return job.execute();
+            return job.execute();
 
-		} catch (JobException e) {
-			throw new ServiceException("Job execute failed.", e);
-		}
-	}
+        } catch (JobException e) {
+            throw new ServiceException("Job execute failed.", e);
+        }
+    }
 }

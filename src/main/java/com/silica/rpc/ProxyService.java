@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -27,28 +27,28 @@ import com.silica.service.ServiceException;
 
 public final class ProxyService extends AbstractRpcService {
 
-	private static final Logger LOG = LoggerFactory.getLogger(ProxyService.class);
-	
-	private static final long serialVersionUID = 2969871989070029618L;
+    private static final Logger LOG = LoggerFactory.getLogger(ProxyService.class);
 
-	private final Class<? extends Service> clazz;
-	
-	private long start;
+    private static final long serialVersionUID = 2969871989070029618L;
 
-	public ProxyService(Class<? extends Service> clazz) throws ServiceException {
+    private final Class<? extends Service> clazz;
 
-		this.clazz = clazz;
-		
-		this.start = System.nanoTime();
-	}
+    private long start;
 
-	@Override
-	public <R extends Serializable> R execute(Job<R> job) throws ServiceException {
-		LOG.info("execute Job {}", job.getClass().getName());
-		
-		R r = ServerSelector.createSelector().select(this).execute(clazz, job);
-		
-		LOG.info("Elapsed time: {} nano sec.", System.nanoTime() - start);
-		return r; 
-	}
+    public ProxyService(Class<? extends Service> clazz) throws ServiceException {
+
+        this.clazz = clazz;
+
+        this.start = System.nanoTime();
+    }
+
+    @Override
+    public <R extends Serializable> R execute(Job<R> job) throws ServiceException {
+        LOG.info("execute Job {}", job.getClass().getName());
+
+        R r = ServerSelector.createSelector().select(this).execute(clazz, job);
+
+        LOG.info("Elapsed time: {} nano sec.", System.nanoTime() - start);
+        return r;
+    }
 }

@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ package com.silica.job;
  */
 public class JobException extends Exception {
 
-	private static final long serialVersionUID = 1912184985511813595L;
-	
-	public JobException(String s, Exception e) {
-		super(s, e);
-	}
-	
-	public JobException(String s) {
-		super(s);
-	}
+    private static final long serialVersionUID = 1912184985511813595L;
+
+    public JobException(String s, Exception e) {
+        super(s, e);
+    }
+
+    public JobException(String s) {
+        super(s);
+    }
 }

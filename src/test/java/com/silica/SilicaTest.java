@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -23,22 +23,22 @@ import com.silica.rpc.ProxyService;
 
 public class SilicaTest {
 
-	@Test
-	public void initialize() throws Exception {
+    @Test
+    public void initialize() throws Exception {
 
-		System.setProperty("SILICA_CONF", "example.properties");
+        System.setProperty("SILICA_CONF", "example.properties");
 
-		String[] args = { 
-				"-o", "bind",
-				"-s", "base.dir=test",
-				"-s", "service.class=" + ProxyService.class.getName(), 
-				"-s", "class.paths=test.jar" };
+        String[] args = {
+                "-o", "bind",
+                "-s", "base.dir=test",
+                "-s", "service.class=" + ProxyService.class.getName(),
+                "-s", "class.paths=test.jar" };
 
-		Silica.boot(args);
-		assertEquals("test/", Silica.getGlobalConfig("base.dir"));
-		assertEquals("test/", Silica.getBaseDirectory());
-		assertEquals(ProxyService.class, Silica.getServiceClass());
-		assertEquals("example.jar,test.jar", Silica.getGlobalConfig("class.paths"));
+        Silica.boot(args);
+        assertEquals("test/", Silica.getGlobalConfig("base.dir"));
+        assertEquals("test/", Silica.getBaseDirectory());
+        assertEquals(ProxyService.class, Silica.getServiceClass());
+        assertEquals("example.jar,test.jar", Silica.getGlobalConfig("class.paths"));
 
-	}
+    }
 }

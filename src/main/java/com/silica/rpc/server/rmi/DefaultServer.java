@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -47,250 +47,250 @@ import com.silica.service.ServiceException;
  */
 public class DefaultServer extends SecurePipedServer {
 
-	private static final Logger LOG = LoggerFactory.getLogger(DefaultServer.class);
-	private static final int MAX_RETRY = 3;
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultServer.class);
+    private static final int MAX_RETRY = 3;
 
-	public DefaultServer(ServerContext context) {
-		super(context);
-	}
+    public DefaultServer(ServerContext context) {
+        super(context);
+    }
 
-	@Override
-	protected void bindLocal(Service service) throws ServerException {
-		ensureActive();
-		
-		try {
-			Remote r = UnicastRemoteObject.exportObject(service, getServerContext().getListenPort2());
-			bindLocal(r, service, 0);
-		} catch (Exception e) {
-			throw new ServerException(MessageFormat.format(
-					"Could not bind the class name:[{0}].", service.getClass().getName()), e);
-		}
-	}
+    @Override
+    protected void bindLocal(Service service) throws ServerException {
+        ensureActive();
 
-	private void bindLocal(Remote r, Service service, int tryCnt) throws ServerException, RemoteException, InterruptedException {
-		
-		String name = service.getClass().getName();
-		try {
-			String version = Silica.getGlobalConfig("version");
-			name = version + name;
-			Registry registry = getRegistry();
-			
-			registry.rebind(name, r);
-			LOG.debug("bind: {} on {}", name, getServerContext().getInternalAddress());
+        try {
+            Remote r = UnicastRemoteObject.exportObject(service, getServerContext().getListenPort2());
+            bindLocal(r, service, 0);
+        } catch (Exception e) {
+            throw new ServerException(MessageFormat.format(
+                    "Could not bind the class name:[{0}].", service.getClass().getName()), e);
+        }
+    }
 
-			if (LOG.isInfoEnabled()) {
-				LOG.info("RMI Object is ready for bind name:{}.", name);
-			}
-		} catch (ConnectException e) {
-			if (tryCnt < MAX_RETRY) {
-				LOG.info("Retry to connect RMI server:{}.", name);
-				Thread.sleep(1500 * (++tryCnt));
-				bindLocal(r, service, tryCnt);
-			} else {
-				throw new ServerException("Could not connect RMI server.");
-			}
-		}
-	}
+    private void bindLocal(Remote r, Service service, int tryCnt) throws ServerException, RemoteException, InterruptedException {
 
-	@Override
-	public void unbind(Class<? extends Service> clazz) throws ServerException {
-		
-		String name = clazz.getName();
+        String name = service.getClass().getName();
+        try {
+            String version = Silica.getGlobalConfig("version");
+            name = version + name;
+            Registry registry = getRegistry();
 
-		try {
+            registry.rebind(name, r);
+            LOG.debug("bind: {} on {}", name, getServerContext().getInternalAddress());
 
-			String version = Silica.getGlobalConfig("version");
+            if (LOG.isInfoEnabled()) {
+                LOG.info("RMI Object is ready for bind name:{}.", name);
+            }
+        } catch (ConnectException e) {
+            if (tryCnt < MAX_RETRY) {
+                LOG.info("Retry to connect RMI server:{}.", name);
+                Thread.sleep(1500 * (++tryCnt));
+                bindLocal(r, service, tryCnt);
+            } else {
+                throw new ServerException("Could not connect RMI server.");
+            }
+        }
+    }
 
-			name = version + name;
+    @Override
+    public void unbind(Class<? extends Service> clazz) throws ServerException {
 
-			getRegistry().unbind(name);
+        String name = clazz.getName();
 
-		} catch (Exception e) {
+        try {
 
-			throw new ServerException(MessageFormat.format(
-					"Could not unbind the class name:[{}].", name), e);
-		}
+            String version = Silica.getGlobalConfig("version");
 
-		LOG.info("RMI Object bind name:{} has been unbinded.", name);
-	}
+            name = version + name;
 
-	private Registry getRegistry() throws RemoteException {
+            getRegistry().unbind(name);
 
-		Registry registry = LocateRegistry.getRegistry(
-				getServerContext().isRemote() 
-					? getServerContext().getPublicAddress() 
-					: getServerContext().getInternalAddress(), 
-				getServerContext().getListenPort1());
+        } catch (Exception e) {
 
-		return registry;
-	}
+            throw new ServerException(MessageFormat.format(
+                    "Could not unbind the class name:[{}].", name), e);
+        }
 
-	@Override
-	public void activate() throws ServerException {
-	
-		super.activate();
+        LOG.info("RMI Object bind name:{} has been unbinded.", name);
+    }
 
-		ServerContext conf = getServerContext();
+    private Registry getRegistry() throws RemoteException {
 
-		String command = MessageFormat.format(
-				conf.getActivationCommand(),
-				String.valueOf(conf.getListenPort1()),
-				conf.getJavaHome(),
-				conf.getClassPathString(), 
-				conf.getInternalAddress(),
-				getServerContext().getResourceDirectory(),
-				Boolean.valueOf(false).toString()); // RMI debug mode = true | false.
+        Registry registry = LocateRegistry.getRegistry(
+                getServerContext().isRemote()
+                        ? getServerContext().getPublicAddress()
+                        : getServerContext().getInternalAddress(),
+                getServerContext().getListenPort1());
 
-		LOG.debug("Server activation command: {}", command);
+        return registry;
+    }
 
-		execute(command);
-	}
+    @Override
+    public void activate() throws ServerException {
 
-	@Override
-	public void disactivate() throws ServerException {
-		if (!isActive()) {
-			return;
-		}
-		
-		ServerContext conf = getServerContext();
+        super.activate();
 
-		String command = MessageFormat.format(
-				conf.getDeactivationCommand(),
-				String.valueOf(conf.getListenPort1()),
-				conf.getResourceDirectory());
+        ServerContext conf = getServerContext();
 
-		LOG.debug("Server deactivation command: {}", command);
+        String command = MessageFormat.format(
+                conf.getActivationCommand(),
+                String.valueOf(conf.getListenPort1()),
+                conf.getJavaHome(),
+                conf.getClassPathString(),
+                conf.getInternalAddress(),
+                getServerContext().getResourceDirectory(),
+                Boolean.valueOf(false).toString()); // RMI debug mode = true | false.
 
-		execute(command);
+        LOG.debug("Server activation command: {}", command);
 
-		super.disactivate();
-	}
+        execute(command);
+    }
 
-	@Override
-	public <R extends Serializable> R execute(Class<? extends Service> clazz,
-			Job<R> job) throws ServiceException {
+    @Override
+    public void disactivate() throws ServerException {
+        if (!isActive()) {
+            return;
+        }
 
-		String name = Silica.getGlobalConfig(Config.KEY_VERSION) + clazz.getName();
-		
-		try {
-			ensureActive();
-			
-			Registry registry = getRegistry();
+        ServerContext conf = getServerContext();
 
-			LOG.debug("will be calling rmi: {}", name);
+        String command = MessageFormat.format(
+                conf.getDeactivationCommand(),
+                String.valueOf(conf.getListenPort1()),
+                conf.getResourceDirectory());
 
-			Service service = lookup(registry, name, 0);
+        LOG.debug("Server deactivation command: {}", command);
 
-			LOG.info("RMI Object lookup successed. bind name :{}.", name);
+        execute(command);
 
-			Resource[] resources = getResources(job);
+        super.disactivate();
+    }
 
-			if (resources != null) {
-				for (Resource resource : resources) {
+    @Override
+    public <R extends Serializable> R execute(Class<? extends Service> clazz,
+            Job<R> job) throws ServiceException {
 
-					try {
+        String name = Silica.getGlobalConfig(Config.KEY_VERSION) + clazz.getName();
 
-						service.setResources(getServerContext()
-								.getResourceDirectory(), resource);
+        try {
+            ensureActive();
 
-					} catch (IOException e) {
+            Registry registry = getRegistry();
 
-						LOG.warn("The error was ignored.", e);
+            LOG.debug("will be calling rmi: {}", name);
 
-					} finally {
+            Service service = lookup(registry, name, 0);
 
-						if (resource != null) {
-							resource.close();
-						}
-					}
-				}
-			}
+            LOG.info("RMI Object lookup successed. bind name :{}.", name);
 
-			return service.execute(job);
+            Resource[] resources = getResources(job);
 
-		} catch (Exception e) {
+            if (resources != null) {
+                for (Resource resource : resources) {
 
-			throw new ServiceException("Could not execute the service.", e);
-		}
-	}
+                    try {
 
-	private Service lookup(Registry registry, String serviceName, int tryCnt)
-			throws InterruptedException, AccessException, RemoteException, ServerException {
+                        service.setResources(getServerContext()
+                                .getResourceDirectory(), resource);
 
-		boolean canRetry = false;
-		Exception tmp;
-		try {
-			return (Service) registry.lookup(serviceName);
+                    } catch (IOException e) {
 
-		} catch (NotBoundException e) {
-			canRetry = true;
-			tmp = e;
-			bind(getServerContext().getService());
-			
-		} catch (ConnectException e) {
-			canRetry = true;
-			tmp = e;
-		}
-		if (canRetry){
-			if (tryCnt < MAX_RETRY) {
-				LOG.info("Retry to lookup service:{}.", serviceName);
-				Thread.sleep(1500 * (++tryCnt));
-				return lookup(registry, serviceName, tryCnt);
-			} else {
-				throw new ServiceException("Could not lookup the service.", tmp);
-			}
-		}
-		throw new IllegalStateException("unknown state");
-	}
-	
-	private Resource[] getResources(Job<?> job) throws IOException {
+                        LOG.warn("The error was ignored.", e);
 
-		Resources res = null;
-		try {
-			
-			res = job.getClass().getMethod("execute").getAnnotation(Resources.class);
-			
-		} catch (Exception e) {
-			// ignore
-			LOG.error("execute() not found.", e);
-		}
+                    } finally {
 
-		if (res == null) {
-			return null;
-		}
+                        if (resource != null) {
+                            resource.close();
+                        }
+                    }
+                }
+            }
 
-		String paths = res.path();
-		LOG.debug("resource paths: {}", paths);
+            return service.execute(job);
 
-		return ResourceLoader.getResources(paths);
-	}
+        } catch (Exception e) {
 
-	@Override
-	public boolean isActive() {
+            throw new ServiceException("Could not execute the service.", e);
+        }
+    }
 
-		try {
+    private Service lookup(Registry registry, String serviceName, int tryCnt)
+            throws InterruptedException, AccessException, RemoteException, ServerException {
 
-			Registry registry = getRegistry();
-			LOG.debug("Connecting to RMI server...");
-			registry.lookup("_silica");
+        boolean canRetry = false;
+        Exception tmp;
+        try {
+            return (Service) registry.lookup(serviceName);
 
-			return true;
+        } catch (NotBoundException e) {
+            canRetry = true;
+            tmp = e;
+            bind(getServerContext().getService());
 
-		} catch (ConnectException e) {
-			LOG.debug("Could not find a active RMI server.");
-			return false;
-		} catch (NotBoundException e) {
-			return true;
-		} catch (Exception e) {
-			LOG.error(e.toString(), e);
-			return false;
-		}
-	}
-	
-	private void ensureActive() throws ServerException {
-		if (isActive()) {
-			return;
-		}
-		activate();
-	}
+        } catch (ConnectException e) {
+            canRetry = true;
+            tmp = e;
+        }
+        if (canRetry) {
+            if (tryCnt < MAX_RETRY) {
+                LOG.info("Retry to lookup service:{}.", serviceName);
+                Thread.sleep(1500 * (++tryCnt));
+                return lookup(registry, serviceName, tryCnt);
+            } else {
+                throw new ServiceException("Could not lookup the service.", tmp);
+            }
+        }
+        throw new IllegalStateException("unknown state");
+    }
+
+    private Resource[] getResources(Job<?> job) throws IOException {
+
+        Resources res = null;
+        try {
+
+            res = job.getClass().getMethod("execute").getAnnotation(Resources.class);
+
+        } catch (Exception e) {
+            // ignore
+            LOG.error("execute() not found.", e);
+        }
+
+        if (res == null) {
+            return null;
+        }
+
+        String paths = res.path();
+        LOG.debug("resource paths: {}", paths);
+
+        return ResourceLoader.getResources(paths);
+    }
+
+    @Override
+    public boolean isActive() {
+
+        try {
+
+            Registry registry = getRegistry();
+            LOG.debug("Connecting to RMI server...");
+            registry.lookup("_silica");
+
+            return true;
+
+        } catch (ConnectException e) {
+            LOG.debug("Could not find a active RMI server.");
+            return false;
+        } catch (NotBoundException e) {
+            return true;
+        } catch (Exception e) {
+            LOG.error(e.toString(), e);
+            return false;
+        }
+    }
+
+    private void ensureActive() throws ServerException {
+        if (isActive()) {
+            return;
+        }
+        activate();
+    }
 }

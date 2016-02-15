@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -23,34 +23,34 @@ import com.silica.rpc.server.Server;
 
 public final class PipeHolder {
 
-	private static final WeakHashMap<String, Pipe> PIPE_CACHE = new WeakHashMap<String, Pipe>();
+    private static final WeakHashMap<String, Pipe> PIPE_CACHE = new WeakHashMap<String, Pipe>();
 
-	private PipeHolder() {
-	}
-	
-	public static Pipe getPipe(final Server server) throws PipeException {
+    private PipeHolder() {
+    }
 
-		synchronized (PIPE_CACHE) {
+    public static Pipe getPipe(final Server server) throws PipeException {
 
-			String address = server.getServerContext().getPublicAddress();
+        synchronized (PIPE_CACHE) {
 
-			Pipe pipe = PIPE_CACHE.get(address);
+            String address = server.getServerContext().getPublicAddress();
 
-			if (pipe == null) {
+            Pipe pipe = PIPE_CACHE.get(address);
 
-				if (Silica.getGlobalConfig(Config.KEY_HOST_ADDRESS).equals(address)) {
+            if (pipe == null) {
 
-					pipe = new DummyPipe();
+                if (Silica.getGlobalConfig(Config.KEY_HOST_ADDRESS).equals(address)) {
 
-				} else {
+                    pipe = new DummyPipe();
 
-					pipe = new SecurePipe();
-				}
-				pipe.connect(server);
-				PIPE_CACHE.put(address, pipe);
-			}
+                } else {
 
-			return pipe;
-		}
-	}
+                    pipe = new SecurePipe();
+                }
+                pipe.connect(server);
+                PIPE_CACHE.put(address, pipe);
+            }
+
+            return pipe;
+        }
+    }
 }

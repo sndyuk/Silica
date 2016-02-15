@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -34,97 +34,91 @@ import java.util.concurrent.TimeoutException;
  */
 public class ResourceWriter implements Closeable {
 
-	private static ExecutorService FIXED_WRITER_THREAD = Executors.newFixedThreadPool(2);
-	
-	private final Resource resource;
+    private static ExecutorService FIXED_WRITER_THREAD = Executors.newFixedThreadPool(2);
 
-	public ResourceWriter(Resource resource) {
-		this.resource = resource;
-	}
+    private final Resource resource;
 
-	public void publish(String path) throws IOException {
+    public ResourceWriter(Resource resource) {
+        this.resource = resource;
+    }
 
-		final File d = new File(path);
+    public void publish(String path) throws IOException {
 
-		if (d.exists()) {
-			if (!d.delete()) {
+        final File d = new File(path);
 
-				throw new IOException(MessageFormat.format(
-						"Could not delete old file [{0}].", path));
-			}
-		} else {
-			File p = d.getParentFile();
-			
-			if (!p.exists() && !p.mkdirs()) {
-				
-				throw new IOException(MessageFormat.format(
-						"Could not create new dir [{0}].", p.getAbsolutePath()));
-			}
-		}
-		if (!d.createNewFile()) {
+        if (d.exists()) {
+            if (!d.delete()) {
 
-			throw new IOException(MessageFormat.format(
-					"Could not create new file [{0}].", path));
-		}
-		if (!d.setReadable(resource.canRead())) {
-			throw new IOException(MessageFormat.format(
-					"Could not change parmission readable [{0}].", path));
-		}
-		if (!d.setWritable(resource.canWrite())) {
-			throw new IOException(MessageFormat.format(
-					"Could not change parmission writable [{0}].", path));
-		}
-		if (!d.setExecutable(resource.canExecute())) {
-			throw new IOException(MessageFormat.format(
-					"Could not change parmission executable [{0}].", path));
-		}
-		
-		Callable<Void> writer = new Callable<Void>() {
+                throw new IOException(MessageFormat.format(
+                        "Could not delete old file [{0}].", path));
+            }
+        } else {
+            File p = d.getParentFile();
 
-			@Override
-			public Void call() throws Exception {
+            if (!p.exists() && !p.mkdirs()) {
 
-				FileChannel srcChannel = resource.getData().getChannel();
-				FileChannel destChannel = new FileOutputStream(d).getChannel();
-				try {
-					srcChannel.transferTo(0, srcChannel.size(), destChannel);
-				} finally {
-					try {
-						destChannel.close();
-					} finally {
-						srcChannel.close();
-					}
-				}
-				return null;
-			}
-		};
+                throw new IOException(MessageFormat.format(
+                        "Could not create new dir [{0}].", p.getAbsolutePath()));
+            }
+        }
+        if (!d.createNewFile()) {
 
-		Future<Void> future = null;
-		synchronized (FIXED_WRITER_THREAD) {
-			future = FIXED_WRITER_THREAD.submit(writer);
-		}
-		if (future != null) {
-			try {
-				try {
-					future.get(30000, TimeUnit.MILLISECONDS);
-				} catch (TimeoutException e) {
-					throw e;
-				} catch (InterruptedException e) {
-					throw e;
-				} catch (ExecutionException e) {
-					throw e;
-				}
-			} catch (Throwable e) {
-				future.cancel(true);
-				throw new IOException("Could not write the resource.", e);
-			}
-		}
-	}
+            throw new IOException(MessageFormat.format(
+                    "Could not create new file [{0}].", path));
+        }
+        if (!d.setReadable(resource.canRead())) {
+            throw new IOException(MessageFormat.format(
+                    "Could not change parmission readable [{0}].", path));
+        }
+        if (!d.setWritable(resource.canWrite())) {
+            throw new IOException(MessageFormat.format(
+                    "Could not change parmission writable [{0}].", path));
+        }
+        if (!d.setExecutable(resource.canExecute())) {
+            throw new IOException(MessageFormat.format(
+                    "Could not change parmission executable [{0}].", path));
+        }
 
-	@Override
-	public void close() throws IOException {
-		if (resource != null) {
-			resource.close();
-		}
-	}
+        Callable<Void> writer = new Callable<Void>() {
+
+            @Override
+            public Void call() throws Exception {
+
+                try (FileChannel srcChannel = resource.getData().getChannel();
+                        FileOutputStream fos = new FileOutputStream(d);
+                        FileChannel destChannel = fos.getChannel()) {
+                    srcChannel.transferTo(0, srcChannel.size(), destChannel);
+                }
+                return null;
+            }
+        };
+
+        Future<Void> future = null;
+        synchronized (FIXED_WRITER_THREAD) {
+            future = FIXED_WRITER_THREAD.submit(writer);
+        }
+        if (future != null) {
+            try {
+                try {
+                    future.get(30000, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    throw e;
+                } catch (InterruptedException e) {
+                    throw e;
+                } catch (ExecutionException e) {
+                    throw e;
+                }
+            } catch (Throwable e) {
+                future.cancel(true);
+                throw new IOException("Could not write the resource.", e);
+            }
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (resource != null) {
+            resource.close();
+        }
+    }
 }

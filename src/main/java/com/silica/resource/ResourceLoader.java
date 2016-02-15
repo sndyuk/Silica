@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -30,75 +30,75 @@ import com.silica.rpc.server.ServerSelector;
  *            読込後の型
  */
 public abstract class ResourceLoader<T, A> {
-	
-	private static final Pattern PATH_SEP = Pattern.compile("^[\\s|\"|\']+|([\"|\']*[\\s]*[,]+[\\s]*[\"|\']*)");
 
-	private A path;
+    private static final Pattern PATH_SEP = Pattern.compile("^[\\s|\"|\']+|([\"|\']*[\\s]*[,]+[\\s]*[\"|\']*)");
 
-	protected abstract T loadResource(A path) throws IOException;
+    private A path;
 
-	/**
-	 * @param path
-	 *            リソースのパス
-	 * @return 読込まれたリソース
-	 * @throws IOException
-	 *             リソースを読めなかった
-	 */
-	public T load(A path) throws IOException {
-		this.path = path;
-		return reload();
-	}
+    protected abstract T loadResource(A path) throws IOException;
 
-	/**
-	 * 再度リソースを読込む
-	 * 
-	 * @return 再読込みされたリソース
-	 * @throws IOException
-	 *             リソースを読めなかった
-	 */
-	public T reload() throws IOException {
+    /**
+     * @param path
+     *            リソースのパス
+     * @return 読込まれたリソース
+     * @throws IOException
+     *             リソースを読めなかった
+     */
+    public T load(A path) throws IOException {
+        this.path = path;
+        return reload();
+    }
 
-		return loadResource(path);
-	}
+    /**
+     * 再度リソースを読込む
+     * 
+     * @return 再読込みされたリソース
+     * @throws IOException
+     *             リソースを読めなかった
+     */
+    public T reload() throws IOException {
 
-	/**
-	 * リソースの配列を取得する
-	 * 
-	 * @param paths
-	 *            (カンマ区切りされた)複数のリソースパス
-	 * @return リソースの配列
-	 * @throws IOException
-	 *             リソースを読めなかった
-	 */
-	public static Resource[] getResources(String paths) throws IOException {
+        return loadResource(path);
+    }
 
-		if (paths == null || paths.length() == 0) {
-			return null;
-		}
+    /**
+     * リソースの配列を取得する
+     * 
+     * @param paths
+     *            (カンマ区切りされた)複数のリソースパス
+     * @return リソースの配列
+     * @throws IOException
+     *             リソースを読めなかった
+     */
+    public static Resource[] getResources(String paths) throws IOException {
 
-		String[] arr = parseResourcePaths(paths);
-		List<Resource> resources = new ArrayList<Resource>();
+        if (paths == null || paths.length() == 0) {
+            return null;
+        }
 
-		for (String path : arr) {
-			if (path == null || path.isEmpty()) {
-				continue;
-			}
-			ServerContext localSc = ServerSelector.createSelector().getLocalServer().getServerContext();
-			if (localSc.isRootDirectory(path)) {
+        String[] arr = parseResourcePaths(paths);
+        List<Resource> resources = new ArrayList<Resource>();
 
-				resources.add(new Resource(path));
+        for (String path : arr) {
+            if (path == null || path.isEmpty()) {
+                continue;
+            }
+            ServerContext localSc = ServerSelector.createSelector().getLocalServer().getServerContext();
+            if (localSc.isRootDirectory(path)) {
 
-			} else {
+                resources.add(new Resource(path));
 
-				resources.add(new Resource(localSc.getResourceDirectory() + path));
-			}
-		}
+            } else {
 
-		return resources.toArray(new Resource[resources.size()]);
-	}
+                resources.add(new Resource(localSc.getResourceDirectory() + path));
+            }
+        }
 
-	protected static final String[] parseResourcePaths(String paths) {
+        return resources.toArray(new Resource[resources.size()]);
+    }
 
-		return PATH_SEP.split(paths);
-	}
+    protected static final String[] parseResourcePaths(String paths) {
+
+        return PATH_SEP.split(paths);
+    }
 }

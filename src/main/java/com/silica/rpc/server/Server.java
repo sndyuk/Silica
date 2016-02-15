@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -28,74 +28,74 @@ import com.silica.service.ServiceException;
  */
 public interface Server {
 
-	/**
-	 * サーバを動かす
-	 * 
-	 * @throws ServerException
-	 *             サーバへの接続に失敗
-	 */
-	public void activate() throws ServerException;
+    /**
+     * サーバを動かす
+     * 
+     * @throws ServerException
+     *             サーバへの接続に失敗
+     */
+    public void activate() throws ServerException;
 
-	/**
-	 * サーバを停止する
-	 * 
-	 * @throws ServerException
-	 *             サーバに繋がらない、また切断に失敗
-	 */
-	public void disactivate() throws ServerException;
-	
-	/**
-	 * サーバが動いてるか
-	 * 
-	 * @return true = 接続, false= 未接続
-	 */
-	public boolean isActive();
+    /**
+     * サーバを停止する
+     * 
+     * @throws ServerException
+     *             サーバに繋がらない、また切断に失敗
+     */
+    public void disactivate() throws ServerException;
 
-	/**
-	 * サービスをアンバインドする
-	 * 
-	 * @param clazz
-	 *            アンバインド対象のサービス
-	 * @throws ServerException
-	 *             アンバインド失敗
-	 */
-	public void unbind(Class<? extends Service> clazz) throws ServerException;
+    /**
+     * サーバが動いてるか
+     * 
+     * @return true = 接続, false= 未接続
+     */
+    public boolean isActive();
 
-	/**
-	 * サービスをバインドする
-	 * 
-	 * @param service
-	 *            バインドするサービス
-	 * @throws ServerException
-	 *             バインドに失敗
-	 * @throws ServiceException
-	 *             不正なサービスをバインドしようとした
-	 */
-	public void bind(Service service) throws ServerException,
-			ServiceException;
+    /**
+     * サービスをアンバインドする
+     * 
+     * @param clazz
+     *            アンバインド対象のサービス
+     * @throws ServerException
+     *             アンバインド失敗
+     */
+    public void unbind(Class<? extends Service> clazz) throws ServerException;
 
-	/**
-	 * サーバのコンテクストを取得する
-	 * 
-	 * @return サーバのコンテクスト
-	 */
-	public ServerContext getServerContext();
+    /**
+     * サービスをバインドする
+     * 
+     * @param service
+     *            バインドするサービス
+     * @throws ServerException
+     *             バインドに失敗
+     * @throws ServiceException
+     *             不正なサービスをバインドしようとした
+     */
+    public void bind(Service service) throws ServerException,
+            ServiceException;
 
-	public void cleanOldModules(boolean wait);
-	
-	/**
-	 * Jobを実行する
-	 * 
-	 * @param <R>
-	 *            Jobの実行結果
-	 * @param clazz
-	 *            サービスのクラス
-	 * @param job
-	 *            実行対象のJob
-	 * @return Jobの実行結果
-	 * @throws ServiceException
-	 *             実行失敗
-	 */
-	public <R extends Serializable> R execute(Class<? extends Service> clazz, Job<R> job)
-			throws ServiceException;
+    /**
+     * サーバのコンテクストを取得する
+     * 
+     * @return サーバのコンテクスト
+     */
+    public ServerContext getServerContext();
+
+    public void cleanOldModules(boolean wait);
+
+    /**
+     * Jobを実行する
+     * 
+     * @param <R>
+     *            Jobの実行結果
+     * @param clazz
+     *            サービスのクラス
+     * @param job
+     *            実行対象のJob
+     * @return Jobの実行結果
+     * @throws ServiceException
+     *             実行失敗
+     */
+    public <R extends Serializable> R execute(Class<? extends Service> clazz, Job<R> job)
+            throws ServiceException;
 }

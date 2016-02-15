@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -32,49 +32,49 @@ import com.silica.job.JobException;
  * @author sndyuk
  */
 public class OldModuleCleaner implements Job<Boolean> {
-	private static final Logger LOG = LoggerFactory.getLogger(OldModuleCleaner.class);
-	private static final long serialVersionUID = 1L;
+    private static final Logger LOG = LoggerFactory.getLogger(OldModuleCleaner.class);
+    private static final long serialVersionUID = 1L;
 
-	public OldModuleCleaner() {
-	}
+    public OldModuleCleaner() {
+    }
 
-	@Override
-	public Boolean execute() throws JobException {
-		
-		String basdir = Silica.getResourceDirectory();
-		File root = new File(basdir).getParentFile();
-		LOG.info("cleaning old modules in {}", basdir);
-		
-		if (!root.isDirectory()) {
-			throw new JobException(MessageFormat.format("Could not found base directory {0}", basdir));
-		}
-		
-		String[] sortedFileNames = root.list();
-		Arrays.sort(sortedFileNames);
-		boolean cleaned = true;
-		for (int i = sortedFileNames.length - 1 - Silica.getNumOfKeepDeployed(); i >= 0; i--) {
-			File f = new File(root, sortedFileNames[i]);
-			if (!f.getAbsolutePath().contains("silica")) { // Just in case.
-				throw new JobException("Do not remove the folder " + f.getAbsolutePath() + ". File path must contains 'silica'.");
-			}
-			if (LOG.isDebugEnabled()) {
-				LOG.debug(MessageFormat.format("Cleaning file: {0}", f.getAbsolutePath()));
-			}
-			if (!deleteChildren(f)) {
-				LOG.error(MessageFormat.format("Could not clean file: {0}", f.getAbsolutePath()));
-				cleaned = false;
-			}
-		}
-		return Boolean.valueOf(cleaned);
-	}
+    @Override
+    public Boolean execute() throws JobException {
 
-	private static boolean deleteChildren(File file) {
-		if (file.isDirectory()) {
-			File[] files = file.listFiles();
-			for (int i = 0; i < files.length; i++) {
-				deleteChildren(files[i]);
-			}
-		}
-		return file.delete();
-	}
+        String basdir = Silica.getResourceDirectory();
+        File root = new File(basdir).getParentFile();
+        LOG.info("cleaning old modules in {}", basdir);
+
+        if (!root.isDirectory()) {
+            throw new JobException(MessageFormat.format("Could not found base directory {0}", basdir));
+        }
+
+        String[] sortedFileNames = root.list();
+        Arrays.sort(sortedFileNames);
+        boolean cleaned = true;
+        for (int i = sortedFileNames.length - 1 - Silica.getNumOfKeepDeployed(); i >= 0; i--) {
+            File f = new File(root, sortedFileNames[i]);
+            if (!f.getAbsolutePath().contains("silica")) { // Just in case.
+                throw new JobException("Do not remove the folder " + f.getAbsolutePath() + ". File path must contains 'silica'.");
+            }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(MessageFormat.format("Cleaning file: {0}", f.getAbsolutePath()));
+            }
+            if (!deleteChildren(f)) {
+                LOG.error(MessageFormat.format("Could not clean file: {0}", f.getAbsolutePath()));
+                cleaned = false;
+            }
+        }
+        return Boolean.valueOf(cleaned);
+    }
+
+    private static boolean deleteChildren(File file) {
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            for (int i = 0; i < files.length; i++) {
+                deleteChildren(files[i]);
+            }
+        }
+        return file.delete();
+    }
 }

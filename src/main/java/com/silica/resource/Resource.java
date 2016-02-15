@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -29,167 +29,170 @@ import org.slf4j.LoggerFactory;
  */
 public class Resource implements Serializable, Closeable {
 
-	private static final long serialVersionUID = 3864307789062600099L;
-	private static final Logger LOG = LoggerFactory.getLogger(Resource.class);
-	
-	private boolean closed;
-	private final String path;
-	private final String name;
-	private final int permission;
+    private static final long serialVersionUID = 3864307789062600099L;
+    private static final Logger LOG = LoggerFactory.getLogger(Resource.class);
 
-	/**
-	 * <p>
-	 * デシリアライザ用コンストラクタ
-	 * </p>
-	 * 
-	 * @deprecated デシリアライザ用
-	 */
-	public Resource() {
-		this(null);
-	}
+    private boolean closed;
+    private final String path;
+    private final String name;
+    private final int permission;
 
-	/**
-	 * <p>
-	 * コンストラクタ
-	 * </p>
-	 * 
-	 * @param path
-	 *            リソースパス
-	 */
-	public Resource(String path) {
-		this(path, getName(path));
-	}
+    /**
+     * <p>
+     * デシリアライザ用コンストラクタ
+     * </p>
+     * 
+     * @deprecated デシリアライザ用
+     */
+    public Resource() {
+        this(null);
+    }
 
-	/**
-	 * <p>
-	 * コンストラクタ
-	 * </p>
-	 * 
-	 * @param path
-	 *            リソースパス
-	 * @param as
-	 *            別名
-	 */
-	public Resource(String path, String as) {
-		this.path = path;
-		this.name = as;
-		
-		File f = new File(path);
-		int p = 0;
-		if (f.canRead()) p += 4;
-		if (f.canWrite()) p += 2;
-		if (f.canExecute()) p += 1;
-		permission = p;
-	}
-	
-	private static String getName(String path) {
-		if (path == null) {
-			return null;
-		}
-		int p = 0;
-		p = (p = path.lastIndexOf("/")) > 0 ? p : path.lastIndexOf("\\");
-		String name = null;
-		if (p > 0) {
-			name = path.substring(p + 1, path.length());
-		}
-		return name;
-	}
-	
-	/**
-	 * <p>
-	 * リソースパスを取得する
-	 * </p>
-	 * 
-	 * @return リソースパス
-	 */
-	public String getPath() {
+    /**
+     * <p>
+     * コンストラクタ
+     * </p>
+     * 
+     * @param path
+     *            リソースパス
+     */
+    public Resource(String path) {
+        this(path, getName(path));
+    }
 
-		return path;
-	}
+    /**
+     * <p>
+     * コンストラクタ
+     * </p>
+     * 
+     * @param path
+     *            リソースパス
+     * @param as
+     *            別名
+     */
+    public Resource(String path, String as) {
+        this.path = path;
+        this.name = as;
 
-	/**
-	 * <p>
-	 * リソース名を取得する
-	 * </p>
-	 * 
-	 * @return リソース名
-	 */
-	public String getName() {
+        File f = new File(path);
+        int p = 0;
+        if (f.canRead())
+            p += 4;
+        if (f.canWrite())
+            p += 2;
+        if (f.canExecute())
+            p += 1;
+        permission = p;
+    }
 
-		return name;
-	}
+    private static String getName(String path) {
+        if (path == null) {
+            return null;
+        }
+        int p = 0;
+        p = (p = path.lastIndexOf("/")) > 0 ? p : path.lastIndexOf("\\");
+        String name = null;
+        if (p > 0) {
+            name = path.substring(p + 1, path.length());
+        }
+        return name;
+    }
 
-	/**
-	 * <p>
-	 * FileInputStremを取得する
-	 * </p>
-	 * 
-	 * @return リソースのFileInputStrem, リソースがない場合は、null
-	 */
-	public FileInputStream getData() {
-		return getInputStream();
-	}
+    /**
+     * <p>
+     * リソースパスを取得する
+     * </p>
+     * 
+     * @return リソースパス
+     */
+    public String getPath() {
 
-	private void ensureOpen() throws IOException {
-		if (closed) {
-			throw new IOException("The resource has been closed.");
-		}
-	}
+        return path;
+    }
 
-	private FileInputStream getInputStream() {
+    /**
+     * <p>
+     * リソース名を取得する
+     * </p>
+     * 
+     * @return リソース名
+     */
+    public String getName() {
 
-		synchronized (this) {
-			try {
+        return name;
+    }
 
-				ensureOpen();
+    /**
+     * <p>
+     * FileInputStremを取得する
+     * </p>
+     * 
+     * @return リソースのFileInputStrem, リソースがない場合は、null
+     */
+    public FileInputStream getData() {
+        return getInputStream();
+    }
 
-				return rl.load(path);
+    private void ensureOpen() throws IOException {
+        if (closed) {
+            throw new IOException("The resource has been closed.");
+        }
+    }
 
-			} catch (IOException e) {
-				LOG.warn("Could not load resource {}", path);
-				close();
-			}
-		}
-		return null;
-	}
+    private FileInputStream getInputStream() {
 
-	private transient ResourceLoader<FileInputStream, String> rl = new ResourceLoader<FileInputStream, String>() {
+        synchronized (this) {
+            try {
 
-		@Override
-		protected FileInputStream loadResource(String path) throws IOException {
-			return new FileInputStream(new File(path));
-		}
-	};
+                ensureOpen();
 
-	/**
-	 * <p>
-	 * リソースをクローズする
-	 * </p>
-	 * かならず呼ぶ必要がある
-	 * 
-	 * @see java.io.Closeable#close()
-	 */
-	@Override
-	public void close() {
-		synchronized (this) {
+                return rl.load(path);
 
-			closed = true;
-		}
-	}
-	
-	public boolean canRead() {
-		return permission >> 2 == 1;
-	}
+            } catch (IOException e) {
+                LOG.warn("Could not load resource {}", path);
+                close();
+            }
+        }
+        return null;
+    }
 
-	public boolean canWrite() {
-		return permission >> 1 == 1;
-	}
+    private transient ResourceLoader<FileInputStream, String> rl = new ResourceLoader<FileInputStream, String>() {
 
-	public boolean canExecute() {
-		return permission == 1;
-	}
-	
-	public int getpermissions() {
-		return permission << 6 | permission << 3 | 04;
-	}
+        @Override
+        protected FileInputStream loadResource(String path) throws IOException {
+            return new FileInputStream(new File(path));
+        }
+    };
+
+    /**
+     * <p>
+     * リソースをクローズする
+     * </p>
+     * かならず呼ぶ必要がある
+     * 
+     * @see java.io.Closeable#close()
+     */
+    @Override
+    public void close() {
+        synchronized (this) {
+
+            closed = true;
+        }
+    }
+
+    public boolean canRead() {
+        return permission >> 2 == 1;
+    }
+
+    public boolean canWrite() {
+        return permission >> 1 == 1;
+    }
+
+    public boolean canExecute() {
+        return permission == 1;
+    }
+
+    public int getpermissions() {
+        return permission << 6 | permission << 3 | 04;
+    }
 }

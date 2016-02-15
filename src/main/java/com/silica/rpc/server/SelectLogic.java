@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2011 sndyuk
+ *    Copyright (C) 2011-2016 sndyuk
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -26,14 +26,14 @@ import com.silica.service.Service;
  */
 public interface SelectLogic {
 
-	/**
-	 * サービスを実行するサーバを選択する
-	 * 
-	 * @param service
-	 *            サービス
-	 * @param activeServers
-	 *            有効なサーバ
-	 * @return サーバ
-	 */
-	public Server select(Service service, List<Server> activeServers);
+    /**
+     * サービスを実行するサーバを選択する
+     * 
+     * @param service
+     *            サービス
+     * @param activeServers
+     *            有効なサーバ
+     * @return サーバ
+     */
+    public Server select(Service service, List<Server> activeServers);
 }
