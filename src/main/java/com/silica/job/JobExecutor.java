@@ -18,7 +18,6 @@ package com.silica.job;
 import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
 
 import com.silica.Silica;
 import com.silica.rpc.ProxyService;
@@ -26,37 +25,23 @@ import com.silica.service.Service;
 import com.silica.service.ServiceException;
 
 /**
- * <p>
- * Jobを実行する
- * </p> {@link ExecutorService}を利用し実行する
+ * <p>Executes a job</p>
  * 
  * @see java.util.concurrent.Callable
  * 
  * @param <R>
- *            Job実行結果
+ *            Result of the job
  */
-public class JobExecutor<R extends Serializable> implements Callable<R>,
-        Serializable {
+public class JobExecutor<R extends Serializable> implements Callable<R>, Serializable {
 
     private static final long serialVersionUID = -5579620009129572616L;
 
     private final Job<R> job;
 
-    /**
-     * コンストラクタ
-     * 
-     * @param job
-     *            実行対象のJob
-     */
     public JobExecutor(Job<R> job) {
         this.job = job;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see java.util.concurrent.Callable#call()
-     */
     @Override
     public R call() throws ServiceException {
 
@@ -67,7 +52,7 @@ public class JobExecutor<R extends Serializable> implements Callable<R>,
 
         } catch (RemoteException e) {
 
-            throw new ServiceException("", e);
+            throw new ServiceException("The executed job return the exception", e);
         }
     }
 }

@@ -23,9 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -36,8 +34,7 @@ import com.silica.rpc.server.ServerSelector;
 
 public class JobExecutorTest {
 
-    private static final Logger LOG = LoggerFactory
-            .getLogger(JobExecutorTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JobExecutorTest.class);
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
@@ -50,14 +47,6 @@ public class JobExecutorTest {
     public static void tearDownAfterClass() throws Exception {
 
         ServerSelector.createSelector().setDisactiveAll();
-    }
-
-    @Before
-    public void setUp() throws Exception {
-    }
-
-    @After
-    public void tearDown() throws Exception {
     }
 
     @Test

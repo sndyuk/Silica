@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * リソースライター
+ * A writer for a resource.
  */
 public class ResourceWriter implements Closeable {
 
@@ -38,11 +38,11 @@ public class ResourceWriter implements Closeable {
 
     private final Resource resource;
 
-    public ResourceWriter(Resource resource) {
+    ResourceWriter(Resource resource) {
         this.resource = resource;
     }
 
-    public void publish(String path) throws IOException {
+    public void write(String path) throws IOException {
 
         final File d = new File(path);
 

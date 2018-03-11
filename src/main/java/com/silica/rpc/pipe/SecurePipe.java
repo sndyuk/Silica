@@ -15,8 +15,7 @@
  */
 package com.silica.rpc.pipe;
 
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.nio.file.Paths;
 import java.text.MessageFormat;
 import java.util.Properties;
 
@@ -33,9 +32,6 @@ import com.silica.rpc.server.SecurePipedServer;
 import com.silica.rpc.server.Server;
 import com.silica.rpc.server.ServerContext;
 
-/**
- * SSH用のパイプ
- */
 public class SecurePipe extends Pipe {
 
     private static final Logger LOG = LoggerFactory.getLogger(SecurePipe.class);
@@ -59,7 +55,7 @@ public class SecurePipe extends Pipe {
 
         if (!(server instanceof SecurePipedServer)) {
 
-            throw new PipeException("A server use Secure pipe need to instance of SecurePipedServer.");
+            throw new PipeException("A server using Secure pipe needs a instance of SecurePipedServer.");
         }
         this.server = server;
         try {
@@ -88,8 +84,6 @@ public class SecurePipe extends Pipe {
 
         } catch (JSchException e) {
 
-            disconnect();
-
             throw new PipeException(MessageFormat.format("Could not pipe the server [{0}].", server.toString()), e);
         }
     }
@@ -110,14 +104,10 @@ public class SecurePipe extends Pipe {
         ensureConnect();
 
         for (Resource resource : resources) {
-            FileInputStream in = resource.getData();
-            if (in == null) {
-                return;
-            }
-
-            String destpath = dest + resource.getName();
 
             try {
+
+                String destpath = Paths.get(dest, resource.getName()).toString();
 
                 int sp = 0;
                 sp = (sp = destpath.lastIndexOf('/')) > 0 ? sp : destpath.lastIndexOf('\\');
@@ -125,22 +115,14 @@ public class SecurePipe extends Pipe {
                 execute("mkdir -p " + destdir);
 
                 ChannelSftp sftp = useSftpChannel();
-                sftp.put(in, destpath);
+                sftp.put(resource.getData(), destpath);
                 sftp.chmod(resource.getpermissions(), destpath);
 
             } catch (Exception e) {
 
-                disconnect();
-
-                throw new PipeException(MessageFormat.format(
-                        "Could not put the resource [{0}].", destpath), e);
+                throw new PipeException(MessageFormat.format("Could not find/put the resource: {0}", resource.getName()), e);
             } finally {
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    throw new PipeException(MessageFormat.format(
-                            "Could not close the resource [{0}].", destpath), e);
-                }
+                resource.close();
             }
         }
     }
@@ -186,7 +168,6 @@ public class SecurePipe extends Pipe {
             }
         } catch (Exception e) {
 
-            disconnect();
             throw new PipeException(MessageFormat.format(
                     "Could not execute command [{0}].", command), e);
         }

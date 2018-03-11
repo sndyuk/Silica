@@ -16,12 +16,12 @@
 package com.silica.rpc;
 
 import java.io.File;
+import java.nio.file.Paths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.silica.resource.Resource;
-import com.silica.resource.ResourceWriter;
 import com.silica.service.Service;
 import com.silica.service.ServiceException;
 
@@ -31,56 +31,30 @@ public abstract class AbstractRpcService implements Service {
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractRpcService.class);
 
-    private Resource[] resources;
-
     protected AbstractRpcService() {
     }
 
-    public boolean hasResource() {
-        return resources != null && resources.length > 0;
-    }
-
     @Override
-    public void setResources(String destdir, Resource... resources) throws ServiceException {
-
-        ResourceWriter rw = null;
+    public void deployResources(String destdir, Resource... resources) throws ServiceException {
 
         try {
-            try {
-                for (Resource resource : resources) {
+            for (Resource resource : resources) {
 
-                    File rf = new File(resource.getName());
-                    String destpath = destdir + rf.getName();
+                File rf = new File(resource.getName());
+                String destpath = Paths.get(destdir, rf.getName()).toString();
 
-                    LOG.debug("destpath: {}", destpath);
+                LOG.debug("destpath: {}", destpath);
 
-                    rw = new ResourceWriter(resource);
-                    rw.publish(destpath);
-                    resource.close();
-                }
-            } catch (Exception e) {
-
-                for (Resource resource : resources) {
-                    File f = new File(resource.getName());
-                    if (!f.delete()) {
-                        LOG.error("Could not rollback: deleting file [{}].",
-                                resource.getName());
-                    }
-                    resource.close();
-                }
-                throw e;
-
-            } finally {
-
-                if (rw != null) {
-                    rw.close();
-                }
+                resource.writer().write(destpath);
             }
         } catch (Exception e) {
-
-            throw new ServiceException("Could not publish the resource.", e);
+            for (Resource resource : resources) {
+                File f = new File(resource.getName());
+                if (!f.delete()) {
+                    LOG.error("Could not rollback: deleting file: {}", resource.getName());
+                }
+            }
+            throw new ServiceException("There is an error when deploying resources", e);
         }
-
-        this.resources = resources;
     }
 }

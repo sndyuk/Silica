@@ -15,9 +15,6 @@
  */
 package com.silica.job;
 
-/**
- * Job例外
- */
 public class JobException extends Exception {
 
     private static final long serialVersionUID = 1912184985511813595L;

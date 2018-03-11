@@ -43,9 +43,9 @@ import com.silica.service.Service;
 import com.silica.service.ServiceException;
 
 /**
- * Silica
+ * Silica.
  * <p>
- * 複数の仮想リソース上で並列処理
+ * Execute process on multiple node as a single node.
  * </p>
  */
 public final class Silica {
@@ -56,86 +56,96 @@ public final class Silica {
     private static Config GLOBAL_CONFIG;
     private static Class<? extends Service> SERVICE_CLASS;
 
-    private static ExecutorService EXECUTOR_POOL = Executors.newFixedThreadPool(3);
+    private static ExecutorService EXECUTOR_POOL = Executors.newWorkStealingPool();
 
     /**
-     * 共通スキームから構成値を取得する
+     * A configuration value from a global schema, which return a same value from any node.
      * 
      * @param key
-     *            変数名
-     * @return 構成値
+     *            key name
+     * @return a configuration value
      */
     public static String getGlobalConfig(String key) {
         return GLOBAL_CONFIG.getMine(key);
     }
 
     /**
-     * Silica
+     * Boot Silica.
      * 
      * @param args
      *            -o: (bind | unbind | exit) -S: xxx=hoge
+     * @see #boot(String[])
      */
     public static void main(String[] args) {
         new Bootstrap().boot(args).execute();
     }
 
+    /**
+     * Boot Silica.
+     * 
+     * @param args
+     *            -o: (bind | unbind | exit) -S: xxx=hoge
+     */
     public static void boot(String[] args) {
         new Bootstrap().boot(args);
     }
 
+    /**
+     * Boot Silica with default settings.
+     */
     public static void boot() {
         boot(new String[0]);
     }
 
     /**
-     * ローカルホストの基本ディレクトリパスを返す
+     * A base directory of the node.
      * 
-     * @return ベースディレクトリ
+     * @return a base directory path.
      */
     public static String getBaseDirectory() {
         return GLOBAL_CONFIG.get(Config.KEY_BASE_DIR);
     }
 
     /**
-     * ローカルホストのリソースディレクトリを返す
+     * A resource directory of the node.
      * 
-     * @return ベースディレクトリ
+     * @return a resource directory path.
      */
     public static String getResourceDirectory() {
         return GLOBAL_CONFIG.get(Config.KEY_RESOURCE_DIR);
     }
 
     /**
-     * Silica設定ファイルのパス
+     * Å configuration file path.
      * 
-     * @return
+     * @return a configuration file path
      */
     public static String getConfigPath() {
         return CONFIG_PATH;
     }
 
     /**
-     * Silicaインスタンスを一意に識別するためのIDを返す
+     * An instance ID of the node.
      * 
-     * @return Silicaインスタンスを一意に識別するためのID
+     * @return a instance ID of the node
      */
     public static String getResourceID() {
         return GLOBAL_CONFIG.get(Config.KEY_RESOURCE_ID);
     }
 
     /**
-     * Service classを取得する
+     * A service class
      * 
-     * @return Service class
+     * @return a Service class
      */
     public static Class<? extends Service> getServiceClass() {
         return SERVICE_CLASS;
     }
 
     /**
-     * Jobの最大実行時間を返す
+     * A job timeout max milli seconds.
      * 
-     * @return Jobの最大実行時間
+     * @return a job timeout max milli seconds
      */
     public static long getJobTimeout() {
         String jobTimeout = GLOBAL_CONFIG.get(Config.KEY_JOB_TIMEOUT_MSEC);
@@ -146,9 +156,9 @@ public final class Silica {
     }
 
     /**
-     * 過去のSilicaインスタンスのリソースをいつくまで破棄せずに保持しておくかを返す
+     * A max number of how many old resources that are keeped on the instance.
      * 
-     * @return 過去のSilicaインスタンスのリソースをいつくまで破棄せずに保持しておくか
+     * @return a max number of how many old resources that are keeped on the instance.
      */
     public static int getNumOfKeepDeployed() {
         String keepDeployedLast = GLOBAL_CONFIG.get(Config.KEY_KEEP_DEPLOYED_LAST);
@@ -159,10 +169,11 @@ public final class Silica {
     }
 
     /**
-     * Jobを同期実行する
+     * Execute job synchronous.
      * 
      * @param job
-     * @return
+     * @param T a type of a result
+     * @return a result of the job
      * @throws ServiceException
      */
     public static <T extends Serializable> T execute(Job<T> job) throws ServiceException {
@@ -170,11 +181,12 @@ public final class Silica {
     }
 
     /**
-     * Jobを同期実行する
+     * Execute job synchronous.
      * 
      * @param job
      * @param jobTimeoutMsec
-     * @return
+     * @param T a type of a result
+     * @return a result of the job
      * @throws ServiceException
      */
     public static <T extends Serializable> T execute(Job<T> job, long jobTimeoutMsec) throws ServiceException {
@@ -198,10 +210,11 @@ public final class Silica {
     }
 
     /**
-     * Jobを非同期実行する
+     * Execute job asynchronous.
      * 
      * @param job
-     * @return
+     * @param T a type of a result
+     * @returna a {@link Future} object of a result of the job
      */
     public static <T extends Serializable> Future<T> executeAsync(Job<T> job) {
 
@@ -210,21 +223,23 @@ public final class Silica {
     }
 
     /**
-     * Jobを非同期実行し、実行後にjobCallbackを実行する
+     * Execute job asynchronous and run a jobCallback function.
      * 
      * @param job
      * @param jobCallback
+     * @param T a type of a result
      */
     public static <T extends Serializable> void executeAsync(final Job<T> job, final Callback<T> jobCallback) {
         executeAsync(job, jobCallback, getJobTimeout());
     }
 
     /**
-     * Jobを非同期実行し、実行後にjobCallbackを実行する
+     * Execute job asynchronous and run a jobCallback function.
      * 
      * @param job
      * @param jobCallback
      * @param jobTimeoutMsec
+     * @param T a type of a result
      */
     public static <T extends Serializable> void executeAsync(final Job<T> job, final Callback<T> jobCallback, final long jobTimeoutMsec) {
 
@@ -262,7 +277,7 @@ public final class Silica {
     }
 
     /**
-     * 実行中のJobを安全にシャットダウンする
+     * Shutdown all jobs.
      */
     protected static void shutdownAllJob() {
         EXECUTOR_POOL.shutdown();
@@ -295,6 +310,7 @@ public final class Silica {
         }
 
         Bootstrap boot(String[] args) {
+            LOG.info("Start initializing Silica");
             if (initialized) {
                 throw new IllegalStateException("Already initialized");
             }
@@ -312,10 +328,12 @@ public final class Silica {
                 parseOptions(cmd);
             } catch (Exception e) {
                 new HelpFormatter().printHelp("example", OPTS);
+
                 throw new IllegalArgumentException(e);
             } finally {
                 initialized = true;
             }
+            LOG.info("Succeeded initializing Silica");
             return this;
         }
 
@@ -356,17 +374,19 @@ public final class Silica {
             GLOBAL_CONFIG = new Config();
 
             String confPath = System.getProperty(KEY_CONFIG_PATH);
-
             if (confPath == null || confPath.length() == 0) {
 
                 confPath = System.getenv(KEY_CONFIG_PATH);
+                LOG.info("Use a configuration file which set on System.env(SILICA_CONF)={}", confPath);
+            } else {
+                LOG.info("Use a configuration file which set on System.property(SILICA_CONF)={}", confPath);
             }
             if (confPath == null || confPath.length() == 0) {
-
+                LOG.info("Use a default configiguration file: silica.properties");
                 confPath = "silica.properties";
             }
             CONFIG_PATH = confPath;
-            LOG.info("[SILICA_CONF]: {}", confPath);
+            LOG.info("Configuration file path={}", confPath);
 
             GLOBAL_CONFIG.init(Thread.currentThread().getContextClassLoader().getResource(confPath));
 
@@ -383,7 +403,7 @@ public final class Silica {
                     }
                     if (key.equals(Config.KEY_BASE_DIR)) {
                         String baseDir = value.endsWith("/") ? value : value + "/";
-                        LOG.info(baseDir);
+                        LOG.info("Update global config: {}={}", Config.KEY_BASE_DIR, value);
                         GLOBAL_CONFIG.set(Config.KEY_BASE_DIR, baseDir);
 
                     } else if (key.equals(Config.KEY_CLASS_PATHS)) {
@@ -394,10 +414,11 @@ public final class Silica {
                             if (orgpaths != null && orgpaths.length() > 0) {
                                 extpaths = orgpaths + "," + extpaths;
                             }
+                            LOG.info("Update global config: {}={}", Config.KEY_CLASS_PATHS, value);
                             GLOBAL_CONFIG.set(Config.KEY_CLASS_PATHS, extpaths);
                         }
                     } else {
-
+                        LOG.info("Update global config: {}={}", key, value);
                         GLOBAL_CONFIG.set(key, value);
                     }
                 }
@@ -411,12 +432,16 @@ public final class Silica {
                 GLOBAL_CONFIG.set(Config.KEY_RESOURCE_ID, Long.toString(System.currentTimeMillis(), Character.MAX_RADIX));
                 GLOBAL_CONFIG.set(Config.KEY_RESOURCE_DIR, getBaseDirectory());
                 GLOBAL_CONFIG.set(Config.KEY_HOST_ADDRESS, "localhost");
+                LOG.info("The instance has been assinged. ID: {}", GLOBAL_CONFIG.get(Config.KEY_RESOURCE_ID));
+            } else {
+                LOG.info("The instance has alredy been assinged for the ID: {}", resourceID);
             }
 
             try {
                 @SuppressWarnings("unchecked")
                 Class<? extends Service> serviceClass = (Class<? extends Service>) Class.forName(getGlobalConfig("service.class"));
                 SERVICE_CLASS = serviceClass;
+                LOG.info("Set a service class: {}", SERVICE_CLASS);
 
             } catch (ClassNotFoundException e) {
                 LOG.error("Could not difine service class.", e);

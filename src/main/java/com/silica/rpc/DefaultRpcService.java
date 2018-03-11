@@ -28,21 +28,21 @@ public class DefaultRpcService extends AbstractRpcService {
 
     private static final long serialVersionUID = -3022485268312130996L;
 
-    private static final Logger LOG = LoggerFactory
-            .getLogger(DefaultRpcService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultRpcService.class);
 
     @Override
     public <R extends Serializable> R execute(Job<R> job)
             throws ServiceException {
 
-        LOG.debug("execute Job: [{}]", job.toString());
-
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Execute a Job: [{}]", job.toString());
+        }
         try {
 
             return job.execute();
 
         } catch (JobException e) {
-            throw new ServiceException("Job execute failed.", e);
+            throw new ServiceException("Job execution failed.", e);
         }
     }
 }

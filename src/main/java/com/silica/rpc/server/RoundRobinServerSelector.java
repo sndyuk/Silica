@@ -21,16 +21,11 @@ import com.silica.service.Service;
 
 /**
  * Selector to select the server to round-robin.
- * 
- * @author sndyuk
  */
-public class RoundRobinServerSelector implements SelectLogic {
+public class RoundRobinServerSelector implements ServerSelectLogic {
 
     private int pos = -1;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public synchronized Server select(Service service, List<Server> activeServers) {
         return activeServers.get((activeServers.size() - 1) > (++pos) ? pos : (pos = 0));

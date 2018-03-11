@@ -26,6 +26,7 @@ import com.silica.Config;
 import com.silica.Silica;
 import com.silica.job.Callback;
 import com.silica.resource.Resource;
+import com.silica.rpc.pipe.DummyPipe;
 import com.silica.rpc.pipe.Pipe;
 import com.silica.rpc.pipe.PipeException;
 import com.silica.rpc.pipe.PipeHolder;
@@ -33,9 +34,7 @@ import com.silica.service.Service;
 import com.silica.service.ServiceException;
 
 /**
- * セキュアシェル経由のサーバ
- * 
- * @author sndyuk
+ * A server connected by SSH.
  */
 public abstract class SecurePipedServer implements Server {
 
@@ -43,27 +42,14 @@ public abstract class SecurePipedServer implements Server {
 
     private ServerContext context;
     private Pipe pipe;
+    private final boolean windows = File.pathSeparatorChar == ';';
 
     public SecurePipedServer(ServerContext context) {
         this.context = context;
     }
 
-    /**
-     * サービスを実行可能状態にする
-     * 
-     * @param clazz
-     * @param service
-     * @throws ServerException
-     */
     protected abstract void bindLocal(Service service) throws ServerException;
 
-    /**
-     * ssh経由でコマンドを投げてサービスを実行可能状態にする
-     * 
-     * @param clazz
-     * @param service
-     * @throws ServerException
-     */
     protected void bindRemote(Service service) throws ServerException {
         String serivceName = service.getClass().getName();
         try {
@@ -86,7 +72,7 @@ public abstract class SecurePipedServer implements Server {
             options.append("\"");
             String bindCommand = MessageFormat.format(
                     getServerContext().getProperty("bind.command"),
-                    String.valueOf(getServerContext().getListenPort1()),
+                    String.valueOf(getServerContext().getListenPortRmiServer()),
                     getServerContext().getJavaHome(),
                     getServerContext().getClassPathString(),
                     getServerContext().getPublicAddress(),
@@ -119,7 +105,6 @@ public abstract class SecurePipedServer implements Server {
 
     @Override
     public void activate() throws ServerException {
-
         try {
 
             if (isActive()) {
@@ -227,7 +212,7 @@ public abstract class SecurePipedServer implements Server {
             pipe.put(dest, resources);
 
         } catch (PipeException e) {
-
+            pipe.disconnect();
             throw new ServerException(e);
         }
     }
@@ -241,6 +226,25 @@ public abstract class SecurePipedServer implements Server {
                 pipe = createPipe();
             }
             pipe.execute(command);
+
+        } catch (PipeException e) {
+
+            throw new ServerException(e);
+        }
+    }
+
+    protected void executeAsDaemonProcess(String command) throws ServerException {
+
+        try {
+
+            if (pipe == null) {
+
+                pipe = createPipe();
+            }
+            if (!(pipe instanceof DummyPipe)) {
+                throw new ServerException("Could not execute command as a daemon on remote server");
+            }
+            ((DummyPipe)pipe).executeAsDaemonProcess(command);
 
         } catch (PipeException e) {
 
@@ -279,5 +283,9 @@ public abstract class SecurePipedServer implements Server {
     protected Pipe createPipe() throws PipeException {
 
         return PipeHolder.getPipe(this);
+    }
+
+    public boolean isWindows() {
+        return windows;
     }
 }

@@ -59,7 +59,7 @@ public class DefaultServer extends SecurePipedServer {
         ensureActive();
 
         try {
-            Remote r = UnicastRemoteObject.exportObject(service, getServerContext().getListenPort2());
+            Remote r = UnicastRemoteObject.exportObject(service, getServerContext().getListenPortRmi());
             bindLocal(r, service, 0);
         } catch (Exception e) {
             throw new ServerException(MessageFormat.format(
@@ -114,33 +114,26 @@ public class DefaultServer extends SecurePipedServer {
         LOG.info("RMI Object bind name:{} has been unbinded.", name);
     }
 
-    private Registry getRegistry() throws RemoteException {
-
-        Registry registry = LocateRegistry.getRegistry(
-                getServerContext().isRemote()
-                        ? getServerContext().getPublicAddress()
-                        : getServerContext().getInternalAddress(),
-                getServerContext().getListenPort1());
-
-        return registry;
-    }
-
     @Override
     public void activate() throws ServerException {
-
+        ensureRMIRegistry();
         super.activate();
 
         ServerContext conf = getServerContext();
 
         String command = MessageFormat.format(
                 conf.getActivationCommand(),
-                String.valueOf(conf.getListenPort1()),
+                String.valueOf(conf.getListenPortRmiServer()),
                 conf.getJavaHome(),
                 conf.getClassPathString(),
                 conf.getInternalAddress(),
                 getServerContext().getResourceDirectory(),
                 Boolean.valueOf(false).toString()); // RMI debug mode = true | false.
 
+        if (command == null || command.equals("")) {
+            LOG.debug("Server activation command is not defined.");
+            return;
+        }
         LOG.debug("Server activation command: {}", command);
 
         execute(command);
@@ -156,14 +149,23 @@ public class DefaultServer extends SecurePipedServer {
 
         String command = MessageFormat.format(
                 conf.getDeactivationCommand(),
-                String.valueOf(conf.getListenPort1()),
+                String.valueOf(conf.getListenPortRmiServer()),
                 conf.getResourceDirectory());
 
-        LOG.debug("Server deactivation command: {}", command);
-
-        execute(command);
-
-        super.disactivate();
+        try {
+            if (command != null && !command.equals("")) {
+                LOG.debug("Server deactivation command: {}", command);
+                execute(command);
+            } else {
+                LOG.debug("Server deactivation command is not defined.");
+            }
+        } finally {
+            try {
+                shutdownRMIRegistry();
+            } finally {
+                super.disactivate();
+            }
+        }
     }
 
     @Override
@@ -176,35 +178,26 @@ public class DefaultServer extends SecurePipedServer {
             ensureActive();
 
             Registry registry = getRegistry();
-
-            LOG.debug("will be calling rmi: {}", name);
-
             Service service = lookup(registry, name, 0);
 
-            LOG.info("RMI Object lookup successed. bind name :{}.", name);
+            LOG.debug("Succeeded RMI Object lookup:{}.", name);
 
             Resource[] resources = getResources(job);
 
             if (resources != null) {
-                for (Resource resource : resources) {
+                LOG.info("Deploy resources");
+                try {
 
-                    try {
+                    service.deployResources(getServerContext().getResourceDirectory(), resources);
 
-                        service.setResources(getServerContext()
-                                .getResourceDirectory(), resource);
+                } finally {
 
-                    } catch (IOException e) {
-
-                        LOG.warn("The error was ignored.", e);
-
-                    } finally {
-
-                        if (resource != null) {
-                            resource.close();
-                        }
+                    for (Resource resource : resources) {
+                        resource.close();
                     }
                 }
             }
+            LOG.info("Execute the job: {}", job.getClass());
 
             return service.execute(job);
 
@@ -214,7 +207,7 @@ public class DefaultServer extends SecurePipedServer {
         }
     }
 
-    private Service lookup(Registry registry, String serviceName, int tryCnt)
+    private synchronized Service lookup(Registry registry, String serviceName, int tryCnt)
             throws InterruptedException, AccessException, RemoteException, ServerException {
 
         boolean canRetry = false;
@@ -251,8 +244,7 @@ public class DefaultServer extends SecurePipedServer {
             res = job.getClass().getMethod("execute").getAnnotation(Resources.class);
 
         } catch (Exception e) {
-            // ignore
-            LOG.error("execute() not found.", e);
+            throw new RuntimeException("Job must have execute method", e);
         }
 
         if (res == null) {
@@ -260,9 +252,12 @@ public class DefaultServer extends SecurePipedServer {
         }
 
         String paths = res.path();
-        LOG.debug("resource paths: {}", paths);
 
-        return ResourceLoader.getResources(paths);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("resource paths to execute the job {}: {}", job.getClass(), paths);
+        }
+
+        return ResourceLoader.defineResources(paths);
     }
 
     @Override
@@ -271,7 +266,7 @@ public class DefaultServer extends SecurePipedServer {
         try {
 
             Registry registry = getRegistry();
-            LOG.debug("Connecting to RMI server...");
+            LOG.debug("Trying to connect to RMI server.");
             registry.lookup("_silica");
 
             return true;
@@ -287,10 +282,66 @@ public class DefaultServer extends SecurePipedServer {
         }
     }
 
-    private void ensureActive() throws ServerException {
+    private synchronized void ensureActive() throws ServerException {
         if (isActive()) {
             return;
         }
         activate();
+    }
+
+    private void ensureRMIRegistry() throws ServerException {
+        ensureRMIRegistry(0);
+    }
+
+    private void ensureRMIRegistry(int tryCnt) throws ServerException {
+        if (!getServerContext().isAutoStartRmiregistry()) {
+            return;
+        }
+        try {
+            Registry registry = getRegistry();
+            registry.lookup("_silica");
+        } catch (ConnectException e) {
+            // Re-try.
+        } catch (RemoteException e) {
+            throw new ServerException(e);
+        } catch (NotBoundException e) {
+            // It's an expected exception.
+            return;
+        }
+        if (tryCnt == 0) {
+            LOG.info("Starting RMI server using the command: {}", getServerContext().getRmiregistryCommand());
+            executeAsDaemonProcess(getServerContext().getRmiregistryCommand());
+            LOG.info("Started RMI server.");
+        }
+        if (tryCnt < MAX_RETRY) {
+            try {
+                Thread.sleep(1500 * (++tryCnt));
+            } catch (InterruptedException _e) {
+                // Ignore the exception
+            }
+            ensureRMIRegistry(tryCnt);
+        } else {
+            throw new ServerException("Could not start RMI server.");
+        }
+    }
+
+    private void shutdownRMIRegistry() throws ServerException {
+        ServerContext ctx = getServerContext();
+        if (!ctx.isAutoStartRmiregistry()) {
+            return;
+        }
+        execute(ctx.getResourceDirectory() + "cmd/shutdown_rmi." + (isWindows() ? "bat" : "sh"));
+    }
+
+    private Registry getRegistry() throws RemoteException {
+
+        String address = getServerContext().isRemote()
+                ? getServerContext().getPublicAddress()
+                : getServerContext().getInternalAddress();
+
+        if (getServerContext().getListenPortRmiServer() <= 0) {
+            return LocateRegistry.getRegistry(address);
+        }
+        return LocateRegistry.getRegistry(address, getServerContext().getListenPortRmiServer());
     }
 }

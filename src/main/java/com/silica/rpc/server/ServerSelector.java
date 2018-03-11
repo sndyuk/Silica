@@ -31,20 +31,11 @@ import com.silica.Config;
 import com.silica.Silica;
 import com.silica.service.Service;
 
-/**
- * Server selector
- * <p>
- * サービスの実行に適切なサーバを選択したり
- * </p>
- * 
- * @author sndyuk
- */
 public final class ServerSelector {
 
-    private static final Logger LOG = LoggerFactory
-            .getLogger(ServerSelector.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ServerSelector.class);
 
-    private SelectLogic selectLogic;
+    private ServerSelectLogic selectLogic;
     private TreeMap<String, Server> serverMap = new TreeMap<String, Server>();
     private List<String> serverMapsKeyList = new ArrayList<String>();
 
@@ -52,13 +43,12 @@ public final class ServerSelector {
 
         try {
             {
-                String classname = Silica
-                        .getGlobalConfig("server.select.logic");
+                String classname = Silica.getGlobalConfig("server.select.logic");
 
                 Class<?> s = ServerSelector.class.getClassLoader().loadClass(
                         classname);
 
-                selectLogic = (SelectLogic) s.newInstance();
+                selectLogic = (ServerSelectLogic) s.newInstance();
 
             }
             {
@@ -68,12 +58,9 @@ public final class ServerSelector {
                 String[] addresses = Silica.getGlobalConfig("server.addresses").split(",");
 
                 for (String address : addresses) {
-                    if (address == null) {
-                        continue;
-                    }
                     address = address.trim();
                     if (address.length() == 0) {
-                        continue;
+                        throw new ServerException("server.addresses must not be empty: " + Silica.getGlobalConfig("server.addresses"));
                     }
                     if (serverMap.get(address) == null) {
                         createServer(address, s);
@@ -112,23 +99,11 @@ public final class ServerSelector {
 
     private static ServerSelector SINGLE_SELECTOR = new ServerSelector();
 
-    /**
-     * サーバセレクターを生成する
-     * 
-     * @return 生成されたサーバセレクター
-     */
     public static ServerSelector createSelector() {
 
         return SINGLE_SELECTOR;
     }
 
-    /**
-     * 有効なサーバを選択して返す
-     * 
-     * @param service
-     *            実行予定のサービス
-     * @return サービスを実行するためのサーバ
-     */
     public Server select(Service service) {
         List<Server> activeServers = new ArrayList<Server>();
         for (Entry<String, Server> entry : serverMap.entrySet()) {
@@ -138,25 +113,17 @@ public final class ServerSelector {
         }
         if (activeServers.size() == 0) {
 
-            throw new IllegalStateException("Server not available.");
+            throw new IllegalStateException("Server are unavailable.");
         }
 
         return selectLogic.select(service, activeServers);
     }
 
-    /**
-     * 全てのサーバを返す
-     * 
-     * @return 用意されている全てのサーバ
-     */
     Map<String, Server> selectAll() {
 
         return Collections.unmodifiableMap(serverMap);
     }
 
-    /**
-     * 全てのサーバを選択不可能にする
-     */
     public void setDisactiveAll() throws ServerException {
 
         try {
@@ -174,9 +141,6 @@ public final class ServerSelector {
         }
     }
 
-    /**
-     * 全てのサーバのリソースを掃除する
-     */
     public void cleanAll(boolean wait) throws ServerException {
 
         try {
@@ -193,11 +157,6 @@ public final class ServerSelector {
         }
     }
 
-    /**
-     * ローカルサーバを返す
-     * 
-     * @return ローカルサーバ
-     */
     public Server getLocalServer() {
 
         return serverMap.get(Silica.getGlobalConfig(Config.KEY_HOST_ADDRESS));

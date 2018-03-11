@@ -18,18 +18,9 @@ package com.silica.job;
 import java.io.Serializable;
 
 /**
- * Job
+ * A Job is executed by a service.
  */
 public interface Job<R extends Serializable> extends Serializable {
 
-    /**
-     * <p>
-     * Jobを実行する
-     * </p>
-     * 
-     * @return Jobの実行結果
-     * @throws JobException
-     *             Jobの実行に失敗
-     */
     R execute() throws JobException;
 }

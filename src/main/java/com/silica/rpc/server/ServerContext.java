@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import com.silica.Config;
 import com.silica.Silica;
 import com.silica.service.Service;
-import com.silica.service.ServiceException;
 
 /**
  * Server context
@@ -41,8 +40,9 @@ public class ServerContext {
     private final boolean remote;
     private final String publicAddress;
     private final String internalAddress;
-    private final int listenPort1;
-    private final int listenPort2;
+    private final int listenPortRmiServer;
+    private final int listenPortRmi;
+    private final String rmiregistryCommand;
     private final Config conf;
     private final String javaHome;
     private final String basedir;
@@ -60,14 +60,6 @@ public class ServerContext {
 
     private boolean enable;
 
-    /**
-     * コンストラクタ
-     * 
-     * @param publicAddress
-     *            サーバのIPアドレス
-     * @throws IOException
-     *             コンテクストの初期化に失敗
-     */
     public ServerContext(String publicAddress) throws IOException {
 
         this.conf = new Config();
@@ -84,9 +76,24 @@ public class ServerContext {
         this.resourcedir = remote ? basedir + ".res/" + Silica.getResourceID() + "/" : Silica.getBaseDirectory();
         this.publicAddress = publicAddress;
         this.internalAddress = InetAddress.getByName(publicAddress).getHostName();
-        this.listenPort1 = Integer.parseInt(conf.get(Config.KEY_LISTEN_PORT1));
-        this.listenPort2 = Integer.parseInt(conf.get(Config.KEY_LISTEN_PORT2));
-        this.javaHome = conf.get(Config.KEY_JAVA_HOME);
+        String listenPortRmiServer = conf.get(Config.KEY_LISTEN_PORT1);
+        if (listenPortRmiServer == null || listenPortRmiServer.equals("")) {
+        	listenPortRmiServer = "0";
+        }
+        this.listenPortRmiServer = Integer.parseInt(listenPortRmiServer);
+
+        String listenPortRmi = conf.get(Config.KEY_LISTEN_PORT2);
+        if (listenPortRmi == null || listenPortRmi.equals("")) {
+        	listenPortRmi = "0";
+        }
+        this.listenPortRmi = Integer.parseInt(listenPortRmi);
+        this.rmiregistryCommand = conf.get(Config.KEY_RMIREGISTRY_COMMAND);
+        String javaHome = conf.get(Config.KEY_JAVA_HOME);
+        if (javaHome == null || javaHome.equals("")) {
+            this.javaHome = System.getProperty("java.home");
+        } else {
+            this.javaHome = javaHome;
+        }
         this.osClassPathsep = basedir.charAt(0) == '/' ? PATH_SEP_UNIX : PATH_SEP_WIN;
         this.classPaths = new ArrayList<String>();
         String[] s = conf.get(Config.KEY_CLASS_PATHS).split(",");
@@ -126,67 +133,36 @@ public class ServerContext {
         }
     }
 
-    /**
-     * サーバのプロパティを返す
-     * 
-     * @param key
-     *            キー
-     * @return 値が無ければ、null
-     */
     protected String getProperty(String key) {
         return conf.get(key);
     }
 
-    /**
-     * サーバのアドレス(public)を返す
-     * 
-     * @return サーバのアドレス
-     */
     public String getPublicAddress() {
         return publicAddress;
     }
 
-    /**
-     * サーバのアドレス(internal)を返す
-     * 
-     * @return サーバのアドレス
-     */
     public String getInternalAddress() {
         return internalAddress;
     }
 
-    /**
-     * ポート1を返す
-     * 
-     * @return ポート1
-     */
-    public int getListenPort1() {
-        return listenPort1;
+    public int getListenPortRmiServer() {
+        return listenPortRmiServer;
     }
 
-    /**
-     * ポート2を返す
-     * 
-     * @return ポート2
-     */
-    public int getListenPort2() {
-        return listenPort2;
+    public int getListenPortRmi() {
+        return listenPortRmi;
+    }
+    public boolean isAutoStartRmiregistry() {
+        return rmiregistryCommand != null && !rmiregistryCommand.equals("");
+    }
+    public String getRmiregistryCommand() {
+        return rmiregistryCommand;
     }
 
-    /**
-     * JAVA_HOMEを返す
-     * 
-     * @return JAVA_HOME
-     */
     public String getJavaHome() {
         return javaHome;
     }
 
-    /**
-     * ベースディレクトリパスを返す
-     * 
-     * @return ベースディレクトリパス
-     */
     public String getBasedir() {
         return basedir;
     }
@@ -195,21 +171,11 @@ public class ServerContext {
         return charset;
     }
 
-    /**
-     * クラスパスの配列を返す
-     * 
-     * @return クラスパスの配列
-     */
     public String[] getClassPaths() {
 
         return classPaths.toArray(new String[classPaths.size()]);
     }
 
-    /**
-     * 環境依存のクラスパスを返す
-     * 
-     * @return 環境依存のクラスパス
-     */
     public String getClassPathString() {
 
         return makeClassPathString(getClassPaths());
@@ -225,22 +191,10 @@ public class ServerContext {
         return sb.toString();
     }
 
-    /**
-     * リソースが置かれるルートディレクトリを返す
-     * 
-     * @return リソースが置かれるルートディレクトリ
-     */
     public String getResourceDirectory() {
         return resourcedir;
     }
 
-    /**
-     * サービスインスタンスを返す
-     * 
-     * @return サービスインスタンス
-     * @throws ServiceException
-     *             サービスインスタンスの作成に失敗
-     */
     public Service getService() throws ServerException {
 
         Class<? extends Service> serviceClass = Silica.getServiceClass();
@@ -255,12 +209,6 @@ public class ServerContext {
         }
     }
 
-    /**
-     * クラスパスを追加する
-     * 
-     * @param path
-     *            パス
-     */
     protected void addClassPath(String path) {
         if (path == null || path.length() == 0) {
             return;
@@ -282,92 +230,42 @@ public class ServerContext {
         }
     }
 
-    /**
-     * リモート環境にあるサーバかを確認する
-     * 
-     * @return リモート環境にあるサーバの場合、true
-     */
     public boolean isRemote() {
         return remote;
     }
 
-    /**
-     * サーバの起動コマンドを返す
-     * 
-     * @return サーバのコマンド
-     */
     public String getActivationCommand() {
         return activationCommand;
     }
 
-    /**
-     * サーバの終了コマンドを返す
-     * 
-     * @return サーバのコマンド
-     */
     public String getDeactivationCommand() {
         return deactivationCommand;
     }
 
-    /**
-     * ssh portを返す
-     * 
-     * @return ssh port
-     */
     public int getSshPort() {
         return sshPort;
     }
 
-    /**
-     * ssh private key pathを返す
-     * 
-     * @return ssh private key path
-     */
     public String getSshPrivateKeyPath() {
         return sshPrivateKeyPath;
     }
 
-    /**
-     * ssh passを返す
-     * 
-     * @return ssh pass
-     */
     public String getSshPass() {
         return sshPass;
     }
 
-    /**
-     * ssh userを返す
-     * 
-     * @return ssh user
-     */
     public String getSshUser() {
         return sshUser;
     }
 
-    /**
-     * ssh timeout msecを返す
-     * 
-     * @return ssh timeout msec
-     */
     public int getSshTimeout() {
         return sshTimeout;
     }
 
-    /**
-     * 有効、無効を返す
-     * 
-     * @return
-     */
     public boolean isEnable() {
         return enable;
     }
 
-    /**
-     * 有効、無効を設定する
-     * 
-     * @param enable
-     */
     public void setEnable(boolean enable) {
         this.enable = enable;
     }

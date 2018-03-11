@@ -19,21 +19,10 @@ import java.util.List;
 
 import com.silica.service.Service;
 
-/**
- * サーバ選択ロジック
- * 
- * @author sndyuk
- */
-public interface SelectLogic {
+public interface ServerSelectLogic {
 
     /**
-     * サービスを実行するサーバを選択する
-     * 
-     * @param service
-     *            サービス
-     * @param activeServers
-     *            有効なサーバ
-     * @return サーバ
+     * Select a server from the activeServers.
      */
     public Server select(Service service, List<Server> activeServers);
 }

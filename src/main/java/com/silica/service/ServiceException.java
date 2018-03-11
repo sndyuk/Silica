@@ -18,7 +18,7 @@ package com.silica.service;
 import java.rmi.RemoteException;
 
 /**
- * サービス例外
+ * An exception wrapping a raw exception of a executed job.
  */
 public class ServiceException extends RemoteException {
 
@@ -26,9 +26,5 @@ public class ServiceException extends RemoteException {
 
     public ServiceException(String s, Exception e) {
         super(s, e);
-    }
-
-    public ServiceException(String s) {
-        super(s);
     }
 }

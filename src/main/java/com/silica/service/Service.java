@@ -23,35 +23,14 @@ import com.silica.job.Job;
 import com.silica.resource.Resource;
 
 /**
- * サービス
- * Jobを実行するために使用する
- * Jobはサービスを利用しない限り実行できない
+ * A service runs a job.
  */
 public interface Service extends Remote, Serializable {
 
     /**
-     * Jobを実行するために必要なリソース設定する
-     * リソースは指定された出力先に転送される
-     * 
-     * @param destdir
-     *            出力先
-     * @param resources
-     *            リソース
-     * @throws ServiceException
-     *             出力失敗
+     * Deploy resources to the destination directory.
      */
-    public void setResources(String destdir, Resource... resources) throws RemoteException;
+    public void deployResources(String destinationDirectoryOnTheTargetServer, Resource... resources) throws RemoteException;
 
-    /**
-     * 指定されたJobがサービスにより実行される
-     * 
-     * @param <R>
-     *            Jobの実行結果
-     * @param job
-     *            実行したいJob
-     * @return Jobの実行結果
-     * @throws RemoteException
-     *             Jobの実行に失敗
-     */
     public <R extends Serializable> R execute(Job<R> job) throws RemoteException;
 }

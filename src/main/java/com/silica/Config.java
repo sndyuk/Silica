@@ -26,13 +26,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.silica.resource.ResourceLoader;
 
 /**
- * 各種構成変数に対する値を一括管理・保持する インスタンス生成後、initメソッドを呼び出すこと
+ * <p>Manages configurations of Silica.</p>
+ * init method must be called after create the instance.
  */
 public final class Config {
+    private static final Logger LOG = LoggerFactory.getLogger(Config.class);
 
+    // --- All keys of the configuration.
     public static final String KEY_VERSION = "version";
     public static final String KEY_BASE_DIR = "base.dir";
     public static final String KEY_RESOURCE_DIR = "resource.dir";
@@ -40,6 +46,7 @@ public final class Config {
     public static final String KEY_HOST_ADDRESS = "host.address";
     public static final String KEY_LISTEN_PORT1 = "listen.port.1";
     public static final String KEY_LISTEN_PORT2 = "listen.port.2";
+    public static final String KEY_RMIREGISTRY_COMMAND = "rmiregistry.command";
     public static final String KEY_JAVA_HOME = "java.home";
     public static final String KEY_CLASS_PATHS = "class.paths";
     public static final String KEY_SERVICE_CLASS = "service.class";
@@ -55,75 +62,35 @@ public final class Config {
     public static final String KEY_JOB_TIMEOUT_MSEC = "job.timeout.msec";
     public static final String KEY_KEEP_DEPLOYED_LAST = "keep.deployed.last";
 
-    /**
-     * リソースローダ
-     */
     private final ResourceLoader<Map<String, String>, InputStream> resource = new ConfigLoader();
-
-    /**
-     * 現在の構成変数に対する値
-     */
     private Map<String, String> props;
 
-    /**
-     * 構成を読込む
-     * 
-     * @param dir
-     *            ディレクトリパス
-     * @param name
-     *            リソース名
-     * @throws IOException
-     *             リソースの読込みに失敗した
-     */
     public void init(String dir, String name) throws IOException {
         init(dir.endsWith("/") ? (dir + name) : (dir + "/" + name));
     }
 
-    /**
-     * 構成を読込む
-     * 
-     * @param u
-     *            URI
-     * @throws IOException
-     *             リソースの読込みに失敗した
-     */
     public void init(URI u) throws IOException {
-        this.props = resource.load(new FileInputStream(new File(u)));
+        init(new FileInputStream(new File(u)));
     }
 
-    /**
-     * 構成を読込む
-     * 
-     * @param path
-     *            リソースパス
-     * @throws IOException
-     *             リソースの読込みに失敗した
-     */
     public void init(String path) throws IOException {
-        this.props = resource.load(new FileInputStream(new File(path)));
-    }
-
-    /**
-     * 構成を読込む
-     * 
-     * @param path
-     *            リソースパス
-     * @throws IOException
-     *             リソースの読込みに失敗した
-     */
-    public void init(URL u) throws IOException {
-        if (u == null) {
-            throw new IllegalArgumentException();
+        File file = new File(path);
+        if (!file.exists()) {
+            throw new IOException("Path(" + path + ") doesn't exist. Current directory: " + new File(".").getAbsolutePath());
         }
-        this.props = resource.load(u.openStream());
+        init(new FileInputStream(new File(path)));
+    }
+
+    public void init(URL u) throws IOException {
+        init(u.openStream());
+    }
+
+    public void init(InputStream is) throws IOException {
+        this.props = resource.load(is);
     }
 
     /**
-     * 変数に対する構成を個別スキームから取得、無い場合、共通スキームから取得する
-     * 
-     * @param key
-     *            変数名
-     * @return 構成値
+     * Get a configuration from the current scheme. If not available in the scheme, get it from global scheme.
      */
     public String get(String key) {
         String value = null;
@@ -131,11 +98,7 @@ public final class Config {
     }
 
     /**
-     * 変数に対する構成を個別スキームから取得する
-     * 
-     * @param key
-     *            変数名
-     * @return 構成値
+     * Get a configuration from the scheme.
      */
     protected String getMine(String key) {
         return props.get(key);
@@ -151,6 +114,7 @@ public final class Config {
         private static final Map<String, String> DEFAULT_ENTRIES = new HashMap<String, String>();
         {
             String path = new File("").getAbsolutePath();
+            DEFAULT_ENTRIES.put("root.dir", path + "/");
             DEFAULT_ENTRIES.put("base.dir", path + "/");
         }
 
@@ -159,26 +123,18 @@ public final class Config {
                 throws IOException {
 
             Properties tmp = new Properties();
-
-            try {
-                tmp.load(in);
-            } finally {
-                if (in != null) {
-                    in.close();
-                }
-            }
-
+            tmp.load(in);
             Map<String, String> map = new HashMap<String, String>();
 
             map.putAll(DEFAULT_ENTRIES);
             for (Entry<Object, Object> entry : tmp.entrySet()) {
-                map.put((String) entry.getKey(), parse((String) entry.getValue(), tmp));
+                map.put((String) entry.getKey(), parse((String) entry.getValue(), map));
             }
 
             return map;
         }
 
-        private String parse(String value, Properties prop) {
+        private String parse(String value, Map<String, String> prop) {
 
             int s = -1;
             boolean x = false;
@@ -194,12 +150,18 @@ public final class Config {
                     x = true;
                 if (x && c == '}') {
                     String k = value.substring(s + 2, i);
-                    String v = prop.getProperty(k);
-                    if (v == null)
+                    String v = prop.get(k);
+                    if (v == null || v.equals("")) {
                         v = DEFAULT_ENTRIES.get(k);
-                    if (v == null)
-                        throw new IllegalArgumentException("Property [{" + k + "}] is missing.");
-                    sb.append(v);
+                    }
+                    if (v == null || v.equals("")) {
+                        v = System.getProperty(k);
+                    }
+                    if (v == null) {
+                        LOG.warn("Property [{}] is missing. It is supporsed to be used by {}", k, value);
+                    } else {
+                        sb.append(v);
+                    }
 
                     s = -1;
                     x = false;

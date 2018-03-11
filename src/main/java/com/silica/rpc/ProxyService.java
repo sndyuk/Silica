@@ -39,16 +39,20 @@ public final class ProxyService extends AbstractRpcService {
 
         this.clazz = clazz;
 
-        this.start = System.nanoTime();
+        if (LOG.isDebugEnabled()) {
+            this.start = System.nanoTime();
+        }
     }
 
     @Override
     public <R extends Serializable> R execute(Job<R> job) throws ServiceException {
-        LOG.info("execute Job {}", job.getClass().getName());
+        LOG.info("Execute a job({}) through the proxy service.", job.getClass().getName());
 
         R r = ServerSelector.createSelector().select(this).execute(clazz, job);
 
-        LOG.info("Elapsed time: {} nano sec.", System.nanoTime() - start);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Elapsed time: {} nano sec.", System.nanoTime() - start);
+        }
         return r;
     }
 }

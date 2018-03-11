@@ -24,62 +24,32 @@ import com.silica.rpc.server.ServerContext;
 import com.silica.rpc.server.ServerSelector;
 
 /**
- * リソースローダー
+ * Resource loader.
  * 
- * @param <T>
- *            読込後の型
+ * @param <R>
+ *            Resource
  */
-public abstract class ResourceLoader<T, A> {
+public abstract class ResourceLoader<R, P> {
 
     private static final Pattern PATH_SEP = Pattern.compile("^[\\s|\"|\']+|([\"|\']*[\\s]*[,]+[\\s]*[\"|\']*)");
 
-    private A path;
+    protected abstract R loadResource(P path) throws IOException;
 
-    protected abstract T loadResource(A path) throws IOException;
-
-    /**
-     * @param path
-     *            リソースのパス
-     * @return 読込まれたリソース
-     * @throws IOException
-     *             リソースを読めなかった
-     */
-    public T load(A path) throws IOException {
-        this.path = path;
-        return reload();
-    }
-
-    /**
-     * 再度リソースを読込む
-     * 
-     * @return 再読込みされたリソース
-     * @throws IOException
-     *             リソースを読めなかった
-     */
-    public T reload() throws IOException {
-
+    public R load(P path) throws IOException {
         return loadResource(path);
     }
 
-    /**
-     * リソースの配列を取得する
-     * 
-     * @param paths
-     *            (カンマ区切りされた)複数のリソースパス
-     * @return リソースの配列
-     * @throws IOException
-     *             リソースを読めなかった
-     */
-    public static Resource[] getResources(String paths) throws IOException {
+    public static Resource[] defineResources(String paths) throws IOException {
+        return defineResources(parseResourcePaths(paths));
+    }
 
-        if (paths == null || paths.length() == 0) {
+    public static Resource[] defineResources(String[] paths) throws IOException {
+        if (paths == null || paths.length == 0) {
             return null;
         }
-
-        String[] arr = parseResourcePaths(paths);
         List<Resource> resources = new ArrayList<Resource>();
 
-        for (String path : arr) {
+        for (String path : paths) {
             if (path == null || path.isEmpty()) {
                 continue;
             }

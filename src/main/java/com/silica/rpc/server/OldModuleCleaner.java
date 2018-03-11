@@ -28,8 +28,6 @@ import com.silica.job.JobException;
 
 /**
  * Old module cleaning job for framework
- * 
- * @author sndyuk
  */
 public class OldModuleCleaner implements Job<Boolean> {
     private static final Logger LOG = LoggerFactory.getLogger(OldModuleCleaner.class);

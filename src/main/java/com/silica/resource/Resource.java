@@ -24,12 +24,10 @@ import java.io.Serializable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * リソース
- */
 public class Resource implements Serializable, Closeable {
 
     private static final long serialVersionUID = 3864307789062600099L;
+
     private static final Logger LOG = LoggerFactory.getLogger(Resource.class);
 
     private boolean closed;
@@ -37,39 +35,20 @@ public class Resource implements Serializable, Closeable {
     private final String name;
     private final int permission;
 
+    private ResourceWriter writer;
+    private FileInputStream inputStream;
+
     /**
-     * <p>
-     * デシリアライザ用コンストラクタ
-     * </p>
-     * 
-     * @deprecated デシリアライザ用
+     * @deprecated Only for deserializer.
      */
     public Resource() {
         this(null);
     }
 
-    /**
-     * <p>
-     * コンストラクタ
-     * </p>
-     * 
-     * @param path
-     *            リソースパス
-     */
     public Resource(String path) {
         this(path, getName(path));
     }
 
-    /**
-     * <p>
-     * コンストラクタ
-     * </p>
-     * 
-     * @param path
-     *            リソースパス
-     * @param as
-     *            別名
-     */
     public Resource(String path, String as) {
         this.path = path;
         this.name = as;
@@ -85,6 +64,14 @@ public class Resource implements Serializable, Closeable {
         permission = p;
     }
 
+    public ResourceWriter writer() {
+        if (this.writer != null) {
+            return writer;
+        }
+        this.writer = new ResourceWriter(this);
+        return writer;
+    }
+
     private static String getName(String path) {
         if (path == null) {
             return null;
@@ -98,38 +85,17 @@ public class Resource implements Serializable, Closeable {
         return name;
     }
 
-    /**
-     * <p>
-     * リソースパスを取得する
-     * </p>
-     * 
-     * @return リソースパス
-     */
     public String getPath() {
 
         return path;
     }
 
-    /**
-     * <p>
-     * リソース名を取得する
-     * </p>
-     * 
-     * @return リソース名
-     */
     public String getName() {
 
         return name;
     }
 
-    /**
-     * <p>
-     * FileInputStremを取得する
-     * </p>
-     * 
-     * @return リソースのFileInputStrem, リソースがない場合は、null
-     */
-    public FileInputStream getData() {
+    public FileInputStream getData() throws IOException {
         return getInputStream();
     }
 
@@ -139,21 +105,15 @@ public class Resource implements Serializable, Closeable {
         }
     }
 
-    private FileInputStream getInputStream() {
-
+    private FileInputStream getInputStream() throws IOException {
         synchronized (this) {
-            try {
-
-                ensureOpen();
-
-                return rl.load(path);
-
-            } catch (IOException e) {
-                LOG.warn("Could not load resource {}", path);
-                close();
+            ensureOpen();
+            if (inputStream != null) {
+                return this.inputStream;
             }
+            this.inputStream = rl.load(path);
+            return inputStream;
         }
-        return null;
     }
 
     private transient ResourceLoader<FileInputStream, String> rl = new ResourceLoader<FileInputStream, String>() {
@@ -164,18 +124,24 @@ public class Resource implements Serializable, Closeable {
         }
     };
 
-    /**
-     * <p>
-     * リソースをクローズする
-     * </p>
-     * かならず呼ぶ必要がある
-     * 
-     * @see java.io.Closeable#close()
-     */
     @Override
     public void close() {
         synchronized (this) {
 
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (Exception e) {
+                    LOG.warn("Could not close the resource", e);
+                }
+            }
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (Exception e) {
+                    LOG.warn("Could not close the resource", e);
+                }
+            }
             closed = true;
         }
     }

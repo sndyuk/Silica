@@ -18,18 +18,17 @@ package com.silica.rpc.pipe;
 import java.io.File;
 import java.io.IOException;
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.silica.resource.Resource;
-import com.silica.resource.ResourceWriter;
 import com.silica.rpc.server.Server;
 
 /**
  * Pipe for the local host.
- * 
- * @author sndyuk
  */
 public class DummyPipe extends Pipe {
 
@@ -37,9 +36,10 @@ public class DummyPipe extends Pipe {
 
     private Server server;
     private int connectionTimeout = 10000;
+    private List<Process> daemonProcesses = new ArrayList<>();
 
     public DummyPipe() {
-        LOG.debug("created dummy pipe for localhost.");
+        LOG.debug("created a dummy pipe for localhost.");
     }
 
     @Override
@@ -49,34 +49,37 @@ public class DummyPipe extends Pipe {
 
     @Override
     public void disconnect() {
-
-        // nop : no need to disconnect.
+        for (Process p : daemonProcesses) {
+            try {
+                LOG.info("Destroy the daemon process {}", p);
+                p.destroyForcibly();
+            } catch (Exception e) {
+                LOG.error("Failed to destroy the daemon process", e);
+            }
+        }
     }
 
     @Override
     public boolean isConnected() {
-
         return true;
     }
 
     @Override
     public void put(String dest, Resource... resources) throws PipeException {
-
         File df = new File(dest);
         if (!df.exists() && !df.mkdirs()) {
-
-            throw new PipeException(MessageFormat.format(
-                    "Could not make directry [{0}].", dest));
+            throw new PipeException(MessageFormat.format("Could not make directry [{0}].", dest));
         }
         for (Resource resource : resources) {
-            try (ResourceWriter writer = new ResourceWriter(resource)) {
-
-                writer.publish(new File(df, resource.getName()).getAbsolutePath());
+            try {
+                resource.writer().write(new File(df, resource.getName()).getAbsolutePath());
 
             } catch (IOException e) {
 
                 throw new PipeException(MessageFormat.format(
                         "Could not put resource [{0}].", resource.getName()), e);
+            } finally {
+                resource.close();
             }
         }
     }
@@ -113,6 +116,29 @@ public class DummyPipe extends Pipe {
 
                 p.destroy();
             }
+        }
+    }
+
+    public void executeAsDaemonProcess(String command) throws PipeException {
+
+        final String[] c = command.split(" ");
+
+        Process p = null;
+        try {
+
+            ProcessBuilder pb = new ProcessBuilder().command(c);
+            p = pb.start();
+            if (LOG.isDebugEnabled()) {
+                debug(p.getErrorStream(), server.getServerContext().getCharset());
+                debug(p.getInputStream(), server.getServerContext().getCharset());
+            }
+            daemonProcesses.add(p);
+        } catch (Exception e) {
+            if (p != null) {
+                p.destroyForcibly();
+            }
+            throw new PipeException(MessageFormat.format(
+                    "Could not execute the command [{0}]", command), e);
         }
     }
 }
